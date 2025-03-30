@@ -1,117 +1,21 @@
 <?php
-// تأكد من أن ملف search_engine.php موجود قبل استيراده
-$searchEnginePath = 'search_engine.php';
-if (file_exists($searchEnginePath)) {
-    require_once $searchEnginePath;
-} else {
-    // إنشاء فئة محرك البحث البسيط إذا لم يكن الملف موجودًا
-    class SearchEngine {
-        private $db;
-        
-        public function __construct($db) {
-            $this->db = $db;
-        }
-        
-        public function search($query, $filters = [], $page = 1, $limit = 12) {
-            // بناء استعلام البحث
-            $whereClauses = [];
-            $params = [];
-            $orderBy = "id DESC";
-            $offset = ($page - 1) * $limit;
-            
-            if (!empty($query)) {
-                $whereClauses[] = "(trade_name LIKE ? OR scientific_name LIKE ? OR arabic_name LIKE ? OR barcode = ?)";
-                $searchParam = "%$query%";
-                $params[] = $searchParam;
-                $params[] = $searchParam;
-                $params[] = $searchParam;
-                $params[] = $query;
-            }
-            
-            if (!empty($filters['category'])) {
-                $whereClauses[] = "category LIKE ?";
-                $params[] = "%" . $filters['category'] . "%";
-            }
-            
-            if (!empty($filters['company'])) {
-                $whereClauses[] = "company = ?";
-                $params[] = $filters['company'];
-            }
-            
-            if (!empty($filters['scientific_name'])) {
-                $whereClauses[] = "scientific_name LIKE ?";
-                $params[] = "%" . $filters['scientific_name'] . "%";
-            }
-            
-            if (isset($filters['price_min']) && is_numeric($filters['price_min'])) {
-                $whereClauses[] = "current_price >= ?";
-                $params[] = $filters['price_min'];
-            }
-            
-            if (isset($filters['price_max']) && is_numeric($filters['price_max'])) {
-                $whereClauses[] = "current_price <= ?";
-                $params[] = $filters['price_max'];
-            }
-            
-            // ترتيب النتائج
-            if (!empty($filters['sort'])) {
-                switch ($filters['sort']) {
-                    case 'price_asc':
-                        $orderBy = "current_price ASC";
-                        break;
-                    case 'price_desc':
-                        $orderBy = "current_price DESC";
-                        break;
-                    case 'name_asc':
-                        $orderBy = "trade_name ASC";
-                        break;
-                    case 'name_desc':
-                        $orderBy = "trade_name DESC";
-                        break;
-                    case 'visits_desc':
-                        $orderBy = "visit_count DESC";
-                        break;
-                    case 'date_desc':
-                        $orderBy = "price_updated_date DESC";
-                        break;
-                }
-            }
-            
-            // إنشاء استعلام البحث
-            $whereClause = !empty($whereClauses) ? "WHERE " . implode(" AND ", $whereClauses) : "";
-            
-            // عدد النتائج الكلي
-            $countSql = "SELECT COUNT(*) as total FROM medications $whereClause";
-            $totalResults = $this->db->fetchOne($countSql, $params)['total'] ?? 0;
-            
-            // جلب نتائج البحث
-            $searchSql = "SELECT * FROM medications $whereClause ORDER BY $orderBy LIMIT $offset, $limit";
-            $searchResults = $this->db->fetchAll($searchSql, $params);
-            
-            return [
-                'results' => $searchResults,
-                'total' => $totalResults,
-                'page' => $page,
-                'limit' => $limit,
-                'pages' => ceil($totalResults / $limit),
-                'query_analysis' => [
-                    'original' => $query,
-                    'keywords' => $query,
-                    'special_tokens' => [],
-                    'suggestions' => []
-                ]
-            ];
-        }
-    }
-}
-
-// search.php - صفحة البحث المتقدم
+// search.php - صفحة البحث المتقدم المطورة مع دعم الذكاء الاصطناعي
 require_once 'config/database.php';
+
+// تضمين ملفات الذكاء الاصطناعي والتكوين
+require_once 'ai_config.php';
+require_once 'ai_search_engine.php';
 
 // تأكد من أن ملف stats_tracking.php موجود قبل استيراده
 $statsTrackingPath = 'includes/stats_tracking.php';
 if (file_exists($statsTrackingPath)) {
     require_once $statsTrackingPath;
+}
+
+// تأكد من أن ملف search_engine.php موجود قبل استيراده
+$searchEnginePath = 'search_engine.php';
+if (file_exists($searchEnginePath)) {
+    require_once $searchEnginePath;
 }
 
 // إعداد معلومات الصفحة
@@ -120,13 +24,25 @@ $currentPage = 'search';
 
 $db = Database::getInstance();
 
-// إنشاء كائنات تتبع الإحصائيات ومحرك البحث إذا كانت الملفات موجودة
+// إنشاء كائنات تتبع الإحصائيات ومحرك البحث
 $statsTracker = null;
 if (class_exists('StatsTracker')) {
     $statsTracker = new StatsTracker($db);
 }
 
+// تهيئة محرك البحث المناسب
 $searchEngine = null;
+$aiSearchEngine = null;
+
+// التحقق مما إذا كان البحث المعزز بالذكاء الاصطناعي مفعل
+$useAiSearch = isAISearchEnabled();
+
+if ($useAiSearch) {
+    // إنشاء محرك البحث المعزز بالذكاء الاصطناعي
+    $aiSearchEngine = new AISearchEngine($db, DEEPSEEK_API_KEY, DEEPSEEK_API_ENDPOINT);
+}
+
+// إنشاء محرك البحث التقليدي كنسخة احتياطية
 if (class_exists('SearchEngine')) {
     $searchEngine = new SearchEngine($db);
 }
@@ -138,6 +54,9 @@ $totalResults = 0;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 12;
 $totalPages = 1;
+$aiResponse = null;
+$queryAnalysis = null;
+$isChatQuery = false;
 
 // إعداد فلاتر البحث
 $filters = [
@@ -158,15 +77,33 @@ if (isset($_GET['q']) && !empty($_GET['q'])) {
         $statsTracker->trackSearch($query);
     }
     
-    // تنفيذ البحث باستخدام محرك البحث
-    if ($searchEngine) {
+    // التحقق مما إذا كان هذا استعلام دردشة
+    $isChatQuery = $useAiSearch && isChatSearchQuery($query);
+    
+    // تنفيذ البحث باستخدام محرك البحث المناسب
+    if ($useAiSearch) {
+        if ($isChatQuery) {
+            // استخدام بحث الدردشة
+            $searchData = $aiSearchEngine->chatSearch($query, [], $filters, $page, $limit);
+            $aiResponse = $searchData['chat_response'] ?? null;
+        } else {
+            // استخدام البحث العادي المعزز بالذكاء الاصطناعي
+            $searchData = $aiSearchEngine->search($query, $filters, $page, $limit);
+        }
+        
+        $searchResults = $searchData['results'] ?? [];
+        $totalResults = $searchData['total'] ?? 0;
+        $totalPages = $searchData['pages'] ?? 1;
+        $queryAnalysis = $searchData['query_analysis'] ?? null;
+    } else if ($searchEngine) {
+        // استخدام محرك البحث التقليدي
         $searchData = $searchEngine->search($query, $filters, $page, $limit);
         $searchResults = $searchData['results'];
         $totalResults = $searchData['total'];
         $totalPages = $searchData['pages'];
         $queryAnalysis = $searchData['query_analysis'] ?? null;
     } else {
-        // بحث بسيط إذا لم يكن محرك البحث موجودًا
+        // بحث بسيط إذا لم يكن أي من محركات البحث متاحة
         $whereClauses = [];
         $params = [];
         
@@ -335,6 +272,19 @@ if ($statsTracker) {
     $mostVisitedMeds = $statsTracker->getMostVisitedMedications(5);
 }
 
+// جلب المعلومات الإضافية من تحليل الاستعلام
+$suggestions = [];
+$aiComment = null;
+$alternativeSuggestions = [];
+$isEnhancedSearch = false;
+
+if ($queryAnalysis) {
+    $suggestions = $queryAnalysis['suggestions'] ?? [];
+    $aiComment = $searchData['ai_comment'] ?? null;
+    $alternativeSuggestions = $searchData['alternative_suggestions'] ?? [];
+    $isEnhancedSearch = isset($searchData['query_analysis']['enhanced']) && $searchData['query_analysis']['enhanced'];
+}
+
 // تضمين ملف الهيدر
 include 'includes/header.php';
 ?>
@@ -342,9 +292,42 @@ include 'includes/header.php';
 <div class="container">
     <h1 class="mb-4">بحث متقدم عن الأدوية</h1>
     
-    <!-- قسم نصائح البحث -->
+    <!-- قسم نصائح البحث والبحث المعزز بالذكاء الاصطناعي -->
     <?php if (empty($_GET['q']) && empty($_GET['category']) && empty($_GET['company']) && empty($_GET['show_all'])): ?>
     <div class="card mb-4 search-tips-section">
+        <?php if ($useAiSearch): ?>
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i> نصائح للبحث المتقدم</h5>
+            <span class="badge bg-light text-primary"><i class="fas fa-robot me-1"></i> البحث الذكي مفعّل</span>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="search-tip-item">
+                        <strong><i class="fas fa-comment-dots text-primary me-2"></i> اطرح أسئلتك بلغة طبيعية</strong>
+                        <p>يمكنك البحث بأسلوب السؤال مثل: <code>ما هو أفضل دواء لعلاج الصداع النصفي؟</code></p>
+                    </div>
+                    
+                    <div class="search-tip-item">
+                        <strong><i class="fas fa-exchange-alt text-success me-2"></i> ابحث عن البدائل</strong>
+                        <p>يمكنك البحث عن البدائل مثل: <code>أريد بديل أرخص للكونكور</code> أو <code>بديل لباراسيتامول</code></p>
+                    </div>
+                </div>
+                
+                <div class="col-md-6 mb-3">
+                    <div class="search-tip-item">
+                        <strong><i class="fas fa-heartbeat text-danger me-2"></i> البحث بالأعراض</strong>
+                        <p>يمكنك البحث حسب الأعراض مثل: <code>أعاني من صداع وحرارة</code> أو <code>دواء للسعال الجاف</code></p>
+                    </div>
+                    
+                    <div class="search-tip-item">
+                        <strong><i class="fas fa-info-circle text-info me-2"></i> البحث بمعلومات جزئية</strong>
+                        <p>يمكنك البحث بمعلومات جزئية مثل: <code>دواء إيطالي للمعدة</code> أو <code>دواء يبدأ بحرف س</code></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php else: ?>
         <div class="card-header bg-info text-white">
             <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i> نصائح للبحث</h5>
         </div>
@@ -375,6 +358,7 @@ include 'includes/header.php';
                 </div>
             </div>
         </div>
+        <?php endif; ?>
     </div>
     <?php endif; ?>
     
@@ -452,6 +436,12 @@ include 'includes/header.php';
                                 name="q" 
                                 value="<?php echo isset($_GET['q']) ? htmlspecialchars($_GET['q']) : ''; ?>"
                             >
+                            
+                            <?php if ($useAiSearch): ?>
+                            <div class="form-text">
+                                <i class="fas fa-robot me-1"></i> يمكنك البحث بالأسئلة أو وصف المشكلة الصحية بلغتك الطبيعية
+                            </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                     
@@ -541,9 +531,15 @@ include 'includes/header.php';
                     
                     <!-- أزرار البحث -->
                     <div class="d-grid gap-2">
+                        <?php if ($useAiSearch): ?>
+                        <button type="submit" class="btn ai-search-btn">
+                            <i class="fas fa-robot me-2"></i> بحث ذكي
+                        </button>
+                        <?php else: ?>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-search me-2"></i> بحث
                         </button>
+                        <?php endif; ?>
                         <a href="search.php?show_all=1" class="btn btn-outline-secondary">
                             عرض كل الأدوية
                         </a>
@@ -577,14 +573,48 @@ include 'includes/header.php';
                     <?php endif; ?>
                 </div>
                 
-                <?php if (isset($queryAnalysis) && !empty($queryAnalysis['suggestions'])): ?>
+                <?php if ($useAiSearch && $isChatQuery && $aiResponse): ?>
+                <!-- عرض رد الدردشة من الذكاء الاصطناعي -->
+                <div class="ai-chat-response mb-4">
+                    <div class="card shadow-sm border-primary">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-robot me-2"></i> المساعد الذكي</h5>
+                            <span class="badge bg-light text-primary">البحث المعزز بالذكاء الاصطناعي</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="lead"><?php echo $aiResponse['text']; ?></p>
+                            
+                            <?php if ($totalResults > 0): ?>
+                            <div class="mt-3">
+                                <p class="mb-1 text-muted">عدد النتائج المطابقة: <strong><?php echo $totalResults; ?></strong></p>
+                                <small class="text-muted">النتائج مرتبة أدناه حسب صلتها باستعلامك</small>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php elseif ($useAiSearch && !empty($aiComment)): ?>
+                <!-- عرض تعليق الذكاء الاصطناعي على نتائج البحث -->
+                <div class="ai-search-comment mb-3">
+                    <div class="alert alert-primary d-flex align-items-center">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-robot me-2 fa-lg"></i>
+                        </div>
+                        <div>
+                            <?php echo $aiComment; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <?php if (!empty($suggestions)): ?>
                 <div class="search-suggestions mb-3">
                     <div class="alert alert-info">
                         <i class="fas fa-lightbulb me-2"></i> هل تقصد: 
-                        <?php foreach ($queryAnalysis['suggestions'] as $index => $suggestion): ?>
+                        <?php foreach ($suggestions as $index => $suggestion): ?>
                             <a href="search.php?q=<?php echo urlencode($suggestion); ?>" class="me-2">
                                 <?php echo $suggestion; ?>
-                            </a><?php echo ($index < count($queryAnalysis['suggestions']) - 1) ? '،' : ''; ?>
+                            </a><?php echo ($index < count($suggestions) - 1) ? '،' : ''; ?>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -800,6 +830,53 @@ include 'includes/header.php';
                         <i class="fas fa-info-circle me-2"></i> 
                         لم يتم العثور على نتائج تطابق معايير البحث. يرجى تعديل معايير البحث والمحاولة مرة أخرى.
                     </div>
+                    
+                    <?php if ($useAiSearch && !empty($alternativeSuggestions)): ?>
+                    <!-- عرض اقتراحات بديلة من الذكاء الاصطناعي عندما لا توجد نتائج -->
+                    <div class="card mt-4 border-primary">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i> اقتراحات بديلة</h5>
+                        </div>
+                        <div class="card-body">
+                            <?php if (!empty($alternativeSuggestions['similar_by_name'])): ?>
+                            <h6 class="mb-3">أدوية ذات أسماء مشابهة:</h6>
+                            <div class="row mb-4">
+                                <?php foreach ($alternativeSuggestions['similar_by_name'] as $med): ?>
+                                <div class="col-md-4 mb-2">
+                                    <a href="medication.php?id=<?php echo $med['id']; ?>" class="btn btn-outline-primary btn-sm w-100 text-start">
+                                        <?php echo $med['trade_name']; ?>
+                                    </a>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <?php if (!empty($alternativeSuggestions['alternatives'])): ?>
+                            <h6 class="mb-3">أدوية بنفس المادة الفعالة (<?php echo $alternativeSuggestions['active_ingredient']; ?>):</h6>
+                            <div class="row">
+                                <?php foreach ($alternativeSuggestions['alternatives'] as $med): ?>
+                                <div class="col-md-4 mb-2">
+                                    <a href="medication.php?id=<?php echo $med['id']; ?>" class="btn btn-outline-success btn-sm w-100 text-start">
+                                        <?php echo $med['trade_name']; ?> <small>(<?php echo $med['company']; ?>)</small>
+                                    </a>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <?php endif; ?>
+                            
+                            <div class="mt-4">
+                                <div class="alert alert-light mb-0">
+                                    <p class="mb-0"><i class="fas fa-info-circle me-1"></i> <strong>نصائح للبحث:</strong></p>
+                                    <ul class="mb-0 mt-2">
+                                        <li>جرّب كتابة الاسم بطريقة مختلفة أو استخدم اسم المادة الفعالة</li>
+                                        <li>استخدم علامة النجمة (*) للبحث عن جزء من الاسم</li>
+                                        <li>اطرح سؤالاً مثل "ما هو بديل لـ [اسم الدواء]؟"</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 <?php endif; ?>
             <?php else: ?>
                 <div class="text-center p-5 bg-light rounded">
@@ -839,10 +916,20 @@ document.addEventListener('DOMContentLoaded', function() {
             listViewBtn.classList.remove('btn-outline-secondary');
         });
     }
+    
+    // تهيئة مؤشر الكتابة للذكاء الاصطناعي
+    const typingIndicator = document.querySelector('.typing-indicator');
+    if (typingIndicator) {
+        setTimeout(() => {
+            const aiResponse = typingIndicator.closest('.card-body').querySelector('.ai-response');
+            typingIndicator.style.display = 'none';
+            aiResponse.style.display = 'block';
+        }, 1500);
+    }
 });
 </script>
 
-<!-- تنسيقات إضافية للبحث -->
+<!-- تنسيقات إضافية للبحث المعزز بالذكاء الاصطناعي -->
 <style>
 .search-highlight {
     background-color: rgba(255, 193, 7, 0.3);
@@ -927,6 +1014,121 @@ document.addEventListener('DOMContentLoaded', function() {
 
 .filter-remove:hover {
     color: #bd2130;
+}
+
+/* تنسيقات البحث المعزز بالذكاء الاصطناعي */
+.ai-chat-response {
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.ai-chat-response .card {
+    border-width: 2px;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.2);
+}
+
+.ai-search-comment {
+    animation: slideInFromTop 0.5s ease-in-out;
+}
+
+.ai-search-comment .alert {
+    border-right: 4px solid #0d6efd;
+    background-color: rgba(13, 110, 253, 0.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+@keyframes slideInFromTop {
+    0% {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* مؤشر الكتابة للذكاء الاصطناعي */
+.typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 6px;
+}
+
+.typing-indicator span {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background-color: #0d6efd;
+    border-radius: 50%;
+    opacity: 0.6;
+    animation: typingAnimation 1s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typingAnimation {
+    0%, 100% {
+        transform: translateY(0);
+        opacity: 0.6;
+    }
+    50% {
+        transform: translateY(-4px);
+        opacity: 1;
+    }
+}
+
+/* زر البحث المعزز بالذكاء الاصطناعي */
+.ai-search-btn {
+    background: linear-gradient(135deg, #0d6efd 0%, #198754 100%);
+    color: white;
+    border: none;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+}
+
+.ai-search-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: -50%;
+    width: 150%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: skewX(-25deg);
+    transition: all 0.4s;
+}
+
+.ai-search-btn:hover::before {
+    right: -180%;
+}
+
+.ai-search-btn:hover {
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+    transform: translateY(-2px);
+}
+
+.ai-badge {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+    border: 1px solid rgba(13, 110, 253, 0.2);
+    transition: all 0.3s;
+}
+
+.ai-badge i {
+    font-size: 0.8rem;
+}
+
+.ai-badge:hover {
+    background-color: #0d6efd;
+    color: white;
 }
 </style>
 

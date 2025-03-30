@@ -1,5 +1,13 @@
 <?php
 // includes/header.php
+
+// التحقق من وجود تكوين الذكاء الاصطناعي
+if (file_exists(dirname(__FILE__) . '/../ai_config.php')) {
+    require_once dirname(__FILE__) . '/../ai_config.php';
+    $headerUseAiSearch = isAISearchEnabled();
+} else {
+    $headerUseAiSearch = false;
+}
 ?>
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
@@ -17,6 +25,58 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
+    
+    <?php if ($headerUseAiSearch): ?>
+    <!-- تنسيقات البحث المعزز بالذكاء الاصطناعي -->
+    <style>
+    /* زر البحث المعزز بالذكاء الاصطناعي */
+    .ai-search-btn {
+        background: linear-gradient(135deg, #0d6efd 0%, #198754 100%);
+        color: white;
+        border: none;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s;
+    }
+    
+    .ai-search-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: -50%;
+        width: 150%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: skewX(-25deg);
+        transition: all 0.4s;
+    }
+    
+    .ai-search-btn:hover::before {
+        right: -180%;
+    }
+    
+    .ai-search-btn:hover {
+        box-shadow: 0 4px 12px rgba(13, 110, 253, 0.3);
+        transform: translateY(-2px);
+    }
+    
+    .ai-badge {
+        background-color: rgba(13, 110, 253, 0.1);
+        color: #0d6efd;
+        border: 1px solid rgba(13, 110, 253, 0.2);
+        transition: all 0.3s;
+    }
+    
+    .ai-badge i {
+        font-size: 0.8rem;
+    }
+    
+    .ai-badge:hover {
+        background-color: #0d6efd;
+        color: white;
+    }
+    </style>
+    <?php endif; ?>
 </head>
 <body>
     <!-- Navbar -->
@@ -37,7 +97,7 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link <?php echo $currentPage == 'search' ? 'active' : ''; ?>" href="search.php">
-                            <i class="fas fa-search me-1"></i> بحث متقدم
+                            <i class="fas <?php echo $headerUseAiSearch ? 'fa-robot' : 'fa-search'; ?> me-1"></i> <?php echo $headerUseAiSearch ? 'بحث ذكي' : 'بحث متقدم'; ?>
                         </a>
                     </li>
                     <li class="nav-item">
@@ -60,15 +120,22 @@
                     <div class="input-group">
                         <input 
                             type="search" 
-                            class="form-control" 
-                            placeholder="ابحث عن اسم دواء..." 
+                            class="form-control search-autocomplete" 
+                            placeholder="<?php echo $headerUseAiSearch ? 'ابحث عن دواء أو اطرح سؤالاً...' : 'ابحث عن اسم دواء...'; ?>" 
                             name="q"
                             required
                         >
-                        <button class="btn btn-light" type="submit">
-                            <i class="fas fa-search"></i>
+                        <button class="btn <?php echo $headerUseAiSearch ? 'ai-search-btn' : 'btn-light'; ?>" type="submit">
+                            <i class="fas <?php echo $headerUseAiSearch ? 'fa-robot' : 'fa-search'; ?>"></i>
                         </button>
                     </div>
+                    <?php if ($headerUseAiSearch): ?>
+                    <div class="ms-2">
+                        <span class="badge ai-badge">
+                            <i class="fas fa-robot me-1"></i> البحث الذكي مفعّل
+                        </span>
+                    </div>
+                    <?php endif; ?>
                 </form>
             </div>
         </div>

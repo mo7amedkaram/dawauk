@@ -27,3 +27,8 @@
 [28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $priceDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 721
 [28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $priceDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 731
 [28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $priceDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 738
+[30-Mar-2025 00:56:58 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10002 milliseconds with 0 bytes received
+[30-Mar-2025 01:04:33 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10002 milliseconds with 0 bytes received
+[30-Mar-2025 01:05:04 UTC] AISearchEngine error: DeepSeek API request failed: Operation timed out after 10001 milliseconds with 0 bytes received
+[30-Mar-2025 01:17:11 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10004 milliseconds with 0 bytes received
+[30-Mar-2025 01:17:29 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10003 milliseconds with 0 bytes received
