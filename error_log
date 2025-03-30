@@ -1,34 +1,3 @@
-[28-Mar-2025 03:54:40 UTC] PHP Parse error:  Unclosed '{' on line 17 in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 44
-[28-Mar-2025 03:55:03 UTC] PHP Parse error:  Unclosed '{' on line 17 in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 44
-[28-Mar-2025 03:55:19 UTC] PHP Parse error:  syntax error, unexpected token "else", expecting end of file in /home/ilsaaftg/ilsinitiative.org/pharmacy/search.php on line 191
-[28-Mar-2025 03:55:21 UTC] PHP Parse error:  syntax error, unexpected token "else", expecting end of file in /home/ilsaaftg/ilsinitiative.org/pharmacy/search.php on line 191
-[28-Mar-2025 03:55:22 UTC] PHP Parse error:  syntax error, unexpected token "else", expecting end of file in /home/ilsaaftg/ilsinitiative.org/pharmacy/search.php on line 191
-[28-Mar-2025 03:55:27 UTC] PHP Parse error:  Unclosed '{' on line 17 in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 44
-[28-Mar-2025 03:55:32 UTC] PHP Parse error:  Unclosed '{' on line 17 in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 44
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 709
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 709
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 710
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 710
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 713
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 713
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 714
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 714
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Undefined variable $percentageDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 733
-[28-Mar-2025 04:05:47 UTC] PHP Warning:  Undefined variable $percentageDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 735
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 709
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 709
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 710
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 710
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 713
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 713
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $alt in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 714
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Trying to access array offset on value of type null in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 714
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $priceDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 716
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $priceDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 721
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $priceDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 731
-[28-Mar-2025 04:09:16 UTC] PHP Warning:  Undefined variable $priceDiff in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 738
-[30-Mar-2025 00:56:58 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10002 milliseconds with 0 bytes received
-[30-Mar-2025 01:04:33 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10002 milliseconds with 0 bytes received
-[30-Mar-2025 01:05:04 UTC] AISearchEngine error: DeepSeek API request failed: Operation timed out after 10001 milliseconds with 0 bytes received
-[30-Mar-2025 01:17:11 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10004 milliseconds with 0 bytes received
-[30-Mar-2025 01:17:29 UTC] Chat search error: DeepSeek API request failed: Operation timed out after 10003 milliseconds with 0 bytes received
+[30-Mar-2025 03:10:35 UTC] PHP Parse error:  syntax error, unexpected token "public", expecting end of file in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 54
+[30-Mar-2025 03:10:45 UTC] PHP Parse error:  syntax error, unexpected token "public", expecting end of file in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 54
+[30-Mar-2025 03:50:43 UTC] Failed to generate medication details: DeepSeek API request failed: HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)

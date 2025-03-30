@@ -3,8 +3,13 @@
 require_once 'config/database.php';
 
 // تضمين ملفات الذكاء الاصطناعي والتكوين
-require_once 'ai_config.php';
-require_once 'ai_search_engine.php';
+if (file_exists('ai_config.php')) {
+    require_once 'ai_config.php';
+}
+
+if (file_exists('ai_search_engine.php')) {
+    require_once 'ai_search_engine.php';
+}
 
 // تأكد من أن ملف stats_tracking.php موجود قبل استيراده
 $statsTrackingPath = 'includes/stats_tracking.php';
@@ -35,9 +40,9 @@ $searchEngine = null;
 $aiSearchEngine = null;
 
 // التحقق مما إذا كان البحث المعزز بالذكاء الاصطناعي مفعل
-$useAiSearch = isAISearchEnabled();
+$useAiSearch = function_exists('isAISearchEnabled') ? isAISearchEnabled() : false;
 
-if ($useAiSearch) {
+if ($useAiSearch && defined('DEEPSEEK_API_KEY')) {
     // إنشاء محرك البحث المعزز بالذكاء الاصطناعي
     $aiSearchEngine = new AISearchEngine($db, DEEPSEEK_API_KEY, DEEPSEEK_API_ENDPOINT);
 }
@@ -78,10 +83,10 @@ if (isset($_GET['q']) && !empty($_GET['q'])) {
     }
     
     // التحقق مما إذا كان هذا استعلام دردشة
-    $isChatQuery = $useAiSearch && isChatSearchQuery($query);
+    $isChatQuery = $useAiSearch && function_exists('isChatSearchQuery') && isChatSearchQuery($query);
     
     // تنفيذ البحث باستخدام محرك البحث المناسب
-    if ($useAiSearch) {
+    if ($useAiSearch && $aiSearchEngine) {
         if ($isChatQuery) {
             // استخدام بحث الدردشة
             $searchData = $aiSearchEngine->chatSearch($query, [], $filters, $page, $limit);
@@ -95,7 +100,7 @@ if (isset($_GET['q']) && !empty($_GET['q'])) {
         $totalResults = $searchData['total'] ?? 0;
         $totalPages = $searchData['pages'] ?? 1;
         $queryAnalysis = $searchData['query_analysis'] ?? null;
-    } else if ($searchEngine) {
+    } elseif ($searchEngine) {
         // استخدام محرك البحث التقليدي
         $searchData = $searchEngine->search($query, $filters, $page, $limit);
         $searchResults = $searchData['results'];

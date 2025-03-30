@@ -1,130 +1,472 @@
-private function generateConditionSpecificGuidelines($condition) {
-        // استعلام الذكاء الاصطناعي للحصول على إرشادات خاصة بالحالة الصحية
-        $prompt = <<<PROMPT
-قدم إرشادات استخدام الأدوية وتوصيات عامة لحالة: $condition
-قدم النتائج بإيجاز في 3 نقاط فقط تتعلق بكيفية استخدام الأدوية بشكل صحيح لهذه الحالة المحددة.
-PROMPT;
+<?php
+// ai_search_engine.php - محرك البحث المعزز بالذكاء الاصطناعي باستخدام DeepSeek API
 
-        $data = [
-            'model' => 'deepseek-chat',
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'أنت مساعد طبي موثوق يقدم إرشادات دقيقة وموجزة حول استخدام الأدوية للحالات الصحية المختلفة.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
-            ],
-            'temperature' => 0.3,
-            'max_tokens' => 150
-        ];
+/**
+ * Class AISearchEngine
+ * محرك البحث المعزز بالذكاء الاصطناعي للأدوية
+ */
+class AISearchEngine {
+    private $db;
+    private $deepseekApiKey;
+    private $deepseekApiEndpoint;
+    private $searchEngine; // محرك البحث التقليدي لاستخدامه كنسخة احتياطية
+
+    /**
+     * AISearchEngine constructor.
+     * 
+     * @param mixed $db كائن قاعدة البيانات
+     * @param string $apiKey مفتاح API الخاص بـ DeepSeek
+     * @param string $endpoint نقطة نهاية API (اختياري، له قيمة افتراضية)
+     */
+    public function __construct($db, $apiKey, $endpoint = 'https://api.deepseek.com/v1/chat/completions') {
+        $this->db = $db;
+        $this->deepseekApiKey = $apiKey;
+        $this->deepseekApiEndpoint = $endpoint;
         
-        try {
-            $response = $this->callDeepSeekAPI($data);
-            
-            if (isset($response['choices'][0]['message']['content'])) {
-                $content = $response['choices'][0]['message']['content'];
-                
-                // تنظيف النص وتقسيمه إلى نقاط
-                $lines = preg_split('/\r\n|\r|\n/', $content);
-                $guidelines = [];
-                
-                foreach ($lines as $line) {
-                    $line = trim($line);
-                    if (empty($line)) continue;
-                    
-                    // إزالة الترقيم في بداية السطر إن وجد
-                    $line = preg_replace('/^[\d\-\.\*]+[\.\)\-]\s*/', '', $line);
-                    
-                    if (!empty($line)) {
-                        $guidelines[] = $line;
-                    }
-                }
-                
-                return $guidelines;
-            }
-        } catch (Exception $e) {
-            error_log("Failed to generate condition specific guidelines: " . $e->getMessage());
+        // إنشاء محرك البحث التقليدي للاستخدام كنسخة احتياطية
+        if (class_exists('SearchEngine')) {
+            $this->searchEngine = new SearchEngine($db);
         }
-        
-        // إرشادات افتراضية في حالة الفشل
-        return [
-            'اتبع تعليمات الطبيب حول كيفية تناول الدواء وجرعته',
-            'أكمل دورة العلاج الموصوفة بالكامل، حتى لو شعرت بتحسن قبل انتهائها',
-            'راقب أي آثار جانبية غير عادية واستشر الطبيب إذا ظهرت عليك أعراض شديدة'
-        ];
     }
 
     /**
-     * الحصول على معلومات حول الحالة الصحية
+     * إجراء بحث معزز بالذكاء الاصطناعي
      * 
-     * @param string $healthCondition الحالة الصحية
-     * @return array معلومات عن الحالة الصحية
+     * @param string $query استعلام البحث
+     * @param array $filters فلاتر البحث
+     * @param int $page رقم الصفحة
+     * @param int $limit عدد النتائج لكل صفحة
+     * @param bool $useAI استخدام الذكاء الاصطناعي (اختياري، افتراضي: true)
+     * @return array نتائج البحث
      */
-    private function getHealthConditionInfo($healthCondition) {
-        $prompt = <<<PROMPT
-قدم معلومات موجزة وموثوقة عن الحالة الصحية التالية: $healthCondition
+    public function search($query, $filters = [], $page = 1, $limit = 12, $useAI = true) {
+        // إذا كان الاستعلام فارغًا أو تم تعطيل الذكاء الاصطناعي، استخدم البحث التقليدي
+        if (empty($query) || !$useAI || empty($this->deepseekApiKey)) {
+            return $this->fallbackSearch($query, $filters, $page, $limit);
+        }
 
-المطلوب تقديم المعلومات التالية بتنسيق JSON:
-1. وصف موجز للحالة
-2. الأعراض الرئيسية
-3. أسباب شائعة
-4. علاجات عامة
-5. متى يجب طلب الرعاية الطبية العاجلة
-
-قدم النتائج بهذا التنسيق:
-{
-    "description": "وصف موجز للحالة",
-    "symptoms": ["عرض 1", "عرض 2", "عرض 3"],
-    "causes": ["سبب 1", "سبب 2", "سبب 3"],
-    "treatments": ["علاج 1", "علاج 2", "علاج 3"],
-    "seek_medical_help": "متى يجب طلب المساعدة الطبية"
-}
-PROMPT;
-
-        $data = [
-            'model' => 'deepseek-chat',
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'أنت خبير طبي متخصص في تقديم معلومات صحية دقيقة وموثوقة. تستخدم مصادر علمية موثوقة وتقدم المعلومات بأسلوب واضح وموجز.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
-            ],
-            'temperature' => 0.2,
-            'response_format' => [
-                'type' => 'json_object'
-            ]
+        try {
+            // تحليل الاستعلام باستخدام DeepSeek API
+            $queryAnalysis = $this->analyzeQuery($query);
+            
+            // التعرف على ما إذا كان المستخدم يبحث عن علاج لحالة صحية معينة
+            $isHealthConditionSearch = $this->isHealthConditionSearch($queryAnalysis);
+            
+            if ($isHealthConditionSearch) {
+                // استخدم البحث الموجه حسب الحالة الصحية
+                $healthCondition = $this->extractHealthCondition($queryAnalysis);
+                $searchParams = $this->buildHealthConditionSearchParams($healthCondition, $filters);
+            } else {
+                // بناء استعلام قاعدة البيانات استنادًا إلى تحليل الذكاء الاصطناعي
+                $searchParams = $this->buildSearchParams($queryAnalysis, $filters);
+            }
+            
+            // تنفيذ البحث في قاعدة البيانات
+            $results = $this->executeSearch($searchParams, $page, $limit);
+            
+            // إضافة المعلومات التفصيلية للأدوية (الجرعات، الآثار الجانبية، إلخ)
+            $results = $this->enrichMedicationsWithDetails($results);
+            
+            // إضافة اقتراحات ومعلومات مفيدة من الذكاء الاصطناعي
+            $enhancedResults = $this->enhanceResults($results, $queryAnalysis, $query);
+            
+            // إضافة نصائح طبية للحالة الصحية إذا كان البحث عن علاج
+            if ($isHealthConditionSearch) {
+                $enhancedResults['health_condition_info'] = $this->getHealthConditionInfo($healthCondition);
+            }
+            
+            return $enhancedResults;
+        } catch (Exception $e) {
+            // تسجيل الخطأ واستخدام البحث التقليدي كخطة بديلة
+            error_log("AISearchEngine error: " . $e->getMessage());
+            return $this->fallbackSearch($query, $filters, $page, $limit);
+        }
+    }
+    
+    /**
+     * إنشاء روابط للأدوية المشابهة والمعلومات ذات الصلة
+     * 
+     * @param array $medication بيانات الدواء
+     * @return array روابط ذات صلة
+     */
+    private function generateMedicationLinks($medication) {
+        $links = [];
+        
+        // بدائل بنفس المادة الفعالة
+        $links['alternatives'] = "search.php?scientific_name=" . urlencode($medication['scientific_name']);
+        
+        // أدوية من نفس الشركة
+        $links['company'] = "search.php?company=" . urlencode($medication['company']);
+        
+        // أدوية من نفس التصنيف
+        $links['category'] = "search.php?category=" . urlencode($medication['category']);
+        
+        // رابط للمقارنة
+        $links['compare'] = "compare.php?ids=" . $medication['id'];
+        
+        return $links;
+    }
+    
+    /**
+     * تصنيف أغراض استخدام الدواء إلى فئات واضحة
+     * 
+     * @param array $medication بيانات الدواء
+     * @return array تصنيفات الاستخدام
+     */
+    private function classifyUsagePurposes($medication) {
+        $categories = [];
+        $indications = $medication['details']['indications'] ?? '';
+        
+        // فحص استخدامات الدواء وتصنيفها
+        $usagePatterns = [
+            'علاج الألم' => ['مسكن', 'تخفيف الألم', 'الصداع', 'آلام'],
+            'خافض للحرارة' => ['خافض حرارة', 'خفض درجة الحرارة', 'الحمى'],
+            'مضاد للالتهاب' => ['مضاد للالتهاب', 'التهاب', 'روماتيزم'],
+            'مضاد حيوي' => ['مضاد حيوي', 'التهاب بكتيري', 'عدوى بكتيرية'],
+            'علاج القلب' => ['ضغط الدم', 'القلب', 'الأوعية الدموية', 'الذبحة'],
+            'علاج السكري' => ['سكري', 'سكر الدم', 'انسولين'],
+            'علاج الجهاز التنفسي' => ['ربو', 'سعال', 'تنفس', 'برد', 'انفلونزا'],
+            'علاج الجهاز الهضمي' => ['هضم', 'معدة', 'حموضة', 'إسهال', 'إمساك'],
+            'مضاد للحساسية' => ['حساسية', 'هستامين', 'طفح جلدي'],
+            'مهدئ ومنوم' => ['قلق', 'توتر', 'أرق', 'نوم']
         ];
         
+        foreach ($usagePatterns as $category => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (mb_stripos($indications, $keyword) !== false) {
+                    $categories[] = $category;
+                    break;
+                }
+            }
+        }
+        
+        // إضافة التصنيف من بيانات الدواء مباشرة إذا لم يتم العثور على تصنيف
+        if (empty($categories) && !empty($medication['category'])) {
+            $categories[] = $medication['category'];
+        }
+        
+        return array_unique($categories);
+    }/**
+     * تصنيف الآثار الجانبية حسب شدتها
+     * 
+     * @param array $medication بيانات الدواء
+     * @return array تصنيف الآثار الجانبية
+     */
+    private function classifySideEffects($medication) {
+        $classification = [
+            'mild' => [],
+            'moderate' => [],
+            'severe' => []
+        ];
+        
+        $sideEffects = $medication['details']['side_effects'] ?? '';
+        
+        // كلمات تدل على الآثار الجانبية الخفيفة
+        $mildKeywords = ['خفيف', 'مؤقت', 'شائع', 'بسيط', 'عابر', 'نادر', 'صداع', 'غثيان بسيط', 'دوخة خفيفة', 'نعاس'];
+        
+        // كلمات تدل على الآثار الجانبية المتوسطة
+        $moderateKeywords = ['متوسط', 'تقيؤ', 'إسهال', 'طفح جلدي', 'حكة', 'دوخة شديدة', 'صداع شديد'];
+        
+        // كلمات تدل على الآثار الجانبية الشديدة
+        $severeKeywords = ['خطير', 'شديد', 'نادر جداً', 'تشنجات', 'فقدان الوعي', 'صعوبة في التنفس', 'تورم', 'حساسية مفرطة', 'طارئ'];
+        
+        // استخراج الآثار الجانبية وتصنيفها
+        $effectLines = preg_split('/[.،؛\n]+/u', $sideEffects);
+        
+        foreach ($effectLines as $effect) {
+            $effect = trim($effect);
+            if (empty($effect)) continue;
+            
+            $severity = 'mild'; // افتراضي
+            
+            // تحديد شدة الأثر الجانبي
+            foreach ($severeKeywords as $keyword) {
+                if (mb_stripos($effect, $keyword) !== false) {
+                    $severity = 'severe';
+                    break;
+                }
+            }
+            
+            if ($severity === 'mild') {
+                foreach ($moderateKeywords as $keyword) {
+                    if (mb_stripos($effect, $keyword) !== false) {
+                        $severity = 'moderate';
+                        break;
+                    }
+                }
+            }
+            
+            $classification[$severity][] = $effect;
+        }
+        
+        return $classification;
+    }
+    
+    /**
+     * توليد معلومات الاستخدام الآمن والفعال للدواء
+     * 
+     * @param array $medication بيانات الدواء
+     * @return array معلومات السلامة
+     */
+    private function generateSafetyInfo($medication) {
+        $safetyInfo = [
+            'pregnancy_safety' => 'غير معروف',
+            'driving_safety' => 'غير معروف',
+            'alcohol_interaction' => 'غير معروف',
+            'storage_recommendations' => 'يحفظ في درجة حرارة الغرفة بعيداً عن الرطوبة والحرارة المباشرة',
+            'special_populations' => []
+        ];
+        
+        $contraindications = $medication['details']['contraindications'] ?? '';
+        $interactions = $medication['details']['interactions'] ?? '';
+        $usageInstructions = $medication['details']['usage_instructions'] ?? '';
+        $storageInfo = $medication['details']['storage_info'] ?? '';
+        
+        // تحديد سلامة الاستخدام أثناء الحمل
+        if (mb_stripos($contraindications, 'حامل') !== false || 
+            mb_stripos($contraindications, 'الحمل') !== false) {
+            $safetyInfo['pregnancy_safety'] = 'غير آمن خلال فترة الحمل';
+        } elseif (mb_stripos($contraindications, 'فئة ب') !== false || 
+                 mb_stripos($contraindications, 'فئة c') !== false) {
+            $safetyInfo['pregnancy_safety'] = 'يستخدم بحذر خلال فترة الحمل وتحت إشراف الطبيب';
+        }
+        
+        // تحديد سلامة القيادة
+        if (mb_stripos($usageInstructions, 'نعاس') !== false || 
+            mb_stripos($usageInstructions, 'دوخة') !== false || 
+            mb_stripos($usageInstructions, 'قيادة') !== false) {
+            $safetyInfo['driving_safety'] = 'قد يؤثر على القدرة على القيادة أو تشغيل الآلات';
+        } else {
+            $safetyInfo['driving_safety'] = 'لا يؤثر عادة على القدرة على القيادة';
+        }
+        
+        // تحديد التفاعل مع الكحول
+        if (mb_stripos($interactions, 'كحول') !== false || 
+            mb_stripos($interactions, 'مشروبات كحولية') !== false) {
+            $safetyInfo['alcohol_interaction'] = 'يجب تجنب الكحول أثناء تناول هذا الدواء';
+        }
+        
+        // تحديد توصيات التخزين
+        if (!empty($storageInfo)) {
+            $safetyInfo['storage_recommendations'] = $storageInfo;
+        }
+        
+        // تحديد الفئات الخاصة
+        if (mb_stripos($contraindications, 'كلى') !== false || 
+            mb_stripos($contraindications, 'كلوي') !== false) {
+            $safetyInfo['special_populations'][] = 'مرضى الكلى';
+        }
+        
+        if (mb_stripos($contraindications, 'كبد') !== false || 
+            mb_stripos($contraindications, 'كبدي') !== false) {
+            $safetyInfo['special_populations'][] = 'مرضى الكبد';
+        }
+        
+        if (mb_stripos($contraindications, 'قلب') !== false || 
+            mb_stripos($contraindications, 'قلبي') !== false) {
+            $safetyInfo['special_populations'][] = 'مرضى القلب';
+        }
+        
+        return $safetyInfo;
+    }
+    
+    /**
+     * توليد تفاصيل الدواء باستخدام الذكاء الاصطناعي
+     * 
+     * @param array $medication بيانات الدواء
+     * @return array تفاصيل الدواء
+     */
+    private function generateMedicationDetails($medication) {
         try {
+            // البحث أولاً عن تفاصيل الدواء في قاعدة البيانات
+            $details = $this->db->fetchOne("SELECT * FROM medication_details WHERE medication_id = ?", [$medication['id']]);
+            
+            if ($details) {
+                return $details;
+            }
+            
+            // إذا لم تتوفر التفاصيل، قم بتوليدها باستخدام الذكاء الاصطناعي
+            $prompt = $this->buildMedicationDetailsPrompt($medication);
+            
+            $data = [
+                'model' => 'deepseek-chat',
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'أنت خبير صيدلاني متخصص في المعلومات الدوائية. مهمتك توفير معلومات دقيقة وشاملة حول الأدوية استناداً إلى المعلومات المتاحة عن الدواء.'
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => $prompt
+                    ]
+                ],
+                'temperature' => 0.2,
+                'response_format' => [
+                    'type' => 'json_object'
+                ]
+            ];
+            
             $response = $this->callDeepSeekAPI($data);
             
             if (isset($response['choices'][0]['message']['content'])) {
                 $content = $response['choices'][0]['message']['content'];
-                $result = json_decode($content, true);
+                $detailsResult = json_decode($content, true);
                 
+                // التحقق من صحة التنسيق
                 if (json_last_error() === JSON_ERROR_NONE) {
-                    return $result;
+                    // حفظ التفاصيل في قاعدة البيانات للاستخدام المستقبلي
+                    $this->saveMedicationDetails($medication['id'], $detailsResult);
+                    
+                    return $detailsResult;
                 }
             }
+            
+            // إذا فشل توليد التفاصيل، أعد هيكل بيانات فارغ
+            return [
+                'indications' => 'غير متوفر',
+                'dosage' => 'غير متوفر',
+                'side_effects' => 'غير متوفر',
+                'contraindications' => 'غير متوفر',
+                'interactions' => 'غير متوفر',
+                'storage_info' => 'غير متوفر',
+                'usage_instructions' => 'غير متوفر'
+            ];
         } catch (Exception $e) {
-            error_log("Failed to get health condition info: " . $e->getMessage());
+            error_log("Failed to generate medication details: " . $e->getMessage());
+            
+            // إرجاع هيكل بيانات فارغ في حالة الخطأ
+            return [
+                'indications' => 'غير متوفر',
+                'dosage' => 'غير متوفر',
+                'side_effects' => 'غير متوفر',
+                'contraindications' => 'غير متوفر',
+                'interactions' => 'غير متوفر',
+                'storage_info' => 'غير متوفر',
+                'usage_instructions' => 'غير متوفر'
+            ];
+        }
+    }
+    
+    /**
+     * بناء الـ Prompt لتوليد تفاصيل الدواء
+     * 
+     * @param array $medication بيانات الدواء
+     * @return string الـ prompt المستخدم للتوليد
+     */
+    private function buildMedicationDetailsPrompt($medication) {
+        return <<<PROMPT
+استناداً إلى المعلومات التالية حول الدواء، قم بتوليد تفاصيل شاملة ودقيقة عنه:
+
+اسم الدواء التجاري: {$medication['trade_name']}
+المادة الفعالة: {$medication['scientific_name']}
+الشركة المنتجة: {$medication['company']}
+التصنيف: {$medication['category']}
+الوصف الإضافي: {$medication['description']}
+
+قدم المعلومات التالية بتنسيق JSON:
+1. دواعي الاستعمال (لماذا يُستخدم هذا الدواء وللحالات المرضية التي يعالجها)
+2. الجرعات (كيفية استخدام الدواء للبالغين والأطفال إن أمكن)
+3. الآثار الجانبية (الشائعة والنادرة)
+4. موانع الاستعمال (متى يجب تجنب استخدام هذا الدواء)
+5. التفاعلات الدوائية (مع أدوية أخرى، أطعمة، أو حالات صحية)
+6. ظروف التخزين (كيفية حفظ الدواء)
+7. إرشادات الاستخدام (توجيهات خاصة حول استخدام الدواء)
+
+أعد النتائج بهذا التنسيق:
+{
+    "indications": "دواعي الاستعمال",
+    "dosage": "الجرعات",
+    "side_effects": "الآثار الجانبية",
+    "contraindications": "موانع الاستعمال",
+    "interactions": "التفاعلات الدوائية",
+    "storage_info": "ظروف التخزين",
+    "usage_instructions": "إرشادات الاستخدام"
+}
+
+ملاحظة مهمة: قدم المعلومات بشكل موجز ودقيق. لا تضيف أي تحذيرات أو توصيات إضافية خارج السياق. تأكد من تجنب المعلومات غير المؤكدة أو غير الدقيقة. افترض أن المعلومات ستراجع من قبل صيدلي أو طبيب قبل استخدامها.
+PROMPT;
+    }
+    
+    /**
+     * حفظ تفاصيل الدواء في قاعدة البيانات
+     * 
+     * @param int $medicationId معرف الدواء
+     * @param array $details تفاصيل الدواء
+     * @return bool نجاح العملية
+     */
+    private function saveMedicationDetails($medicationId, $details) {
+        try {
+            // التحقق مما إذا كانت التفاصيل موجودة بالفعل
+            $existingDetails = $this->db->fetchOne("SELECT id FROM medication_details WHERE medication_id = ?", [$medicationId]);
+            
+            $data = [
+                'indications' => $details['indications'] ?? 'غير متوفر',
+                'dosage' => $details['dosage'] ?? 'غير متوفر',
+                'side_effects' => $details['side_effects'] ?? 'غير متوفر',
+                'contraindications' => $details['contraindications'] ?? 'غير متوفر',
+                'interactions' => $details['interactions'] ?? 'غير متوفر',
+                'storage_info' => $details['storage_info'] ?? 'غير متوفر',
+                'usage_instructions' => $details['usage_instructions'] ?? 'غير متوفر',
+                'last_updated' => date('Y-m-d H:i:s')
+            ];
+            
+            if ($existingDetails) {
+                // تحديث التفاصيل الموجودة
+                $this->db->update('medication_details', $data, 'medication_id = ?', [$medicationId]);
+            } else {
+                // إضافة تفاصيل جديدة
+                $data['medication_id'] = $medicationId;
+                $this->db->insert('medication_details', $data);
+            }
+            
+            return true;
+        } catch (Exception $e) {
+            error_log("Failed to save medication details: " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * استدعاء DeepSeek API
+     * 
+     * @param array $data بيانات الاستدعاء
+     * @return array استجابة API
+     * @throws Exception
+     */
+    private function callDeepSeekAPI($data) {
+        $ch = curl_init($this->deepseekApiEndpoint);
+        
+        $headers = [
+            'Content-Type: application/json',
+            'Authorization: Bearer ' . $this->deepseekApiKey
+        ];
+        
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        
+        if (curl_errno($ch)) {
+            throw new Exception('DeepSeek API request failed: ' . curl_error($ch));
         }
         
-        // معلومات افتراضية في حالة الفشل
-        return [
-            'description' => "معلومات عن " . $healthCondition,
-            'symptoms' => ["يرجى استشارة الطبيب للتعرف على الأعراض"],
-            'causes' => ["متعددة ومتنوعة، يمكن للطبيب تحديدها"],
-            'treatments' => ["يعتمد العلاج على تشخيص الحالة من قبل الطبيب المختص"],
-            'seek_medical_help' => "يجب طلب المساعدة الطبية عند ظهور أعراض شديدة أو مستمرة"
-        ];
+        curl_close($ch);
+        
+        if ($httpCode != 200) {
+            throw new Exception("DeepSeek API returned error code: $httpCode, Response: $response");
+        }
+        
+        $decodedResponse = json_decode($response, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception('Failed to decode DeepSeek API response: ' . json_last_error_msg());
+        }
+        
+        return $decodedResponse;
     }
     
     /**
@@ -180,7 +522,7 @@ PROMPT;
         } catch (Exception $e) {
             error_log("Chat search error: " . $e->getMessage());
             
-            // إعادة نتائج البحث العادي مع رسالة خطأ
+             // إعادة نتائج البحث العادي مع رسالة خطأ
             $fallbackResults = $this->fallbackSearch($query, $filters, $page, $limit);
             $fallbackResults['chat_response'] = [
                 'text' => 'عذراً، لم أتمكن من فهم استعلامك بشكل كامل. إليك نتائج البحث العادي.',
@@ -387,89 +729,237 @@ PROMPT;
             'text' => 'وجدت بعض الأدوية التي قد تناسب استعلامك. يرجى مراجعة نتائج البحث أدناه والاطلاع على تفاصيل كل دواء. تذكر دائمًا استشارة الطبيب أو الصيدلي قبل استخدام أي دواء.',
             'error' => true
         ];
-    }<?php
-// ai_search_engine.php - محرك البحث المعزز بالذكاء الاصطناعي باستخدام DeepSeek API
-
-/**
- * Class AISearchEngine
- * محرك البحث المعزز بالذكاء الاصطناعي للأدوية
- */
-class AISearchEngine {
-    private $db;
-    private $deepseekApiKey;
-    private $deepseekApiEndpoint;
-    private $searchEngine; // محرك البحث التقليدي لاستخدامه كنسخة احتياطية
-
-    /**
-     * AISearchEngine constructor.
-     * 
-     * @param mixed $db كائن قاعدة البيانات
-     * @param string $apiKey مفتاح API الخاص بـ DeepSeek
-     * @param string $endpoint نقطة نهاية API (اختياري، له قيمة افتراضية)
-     */
-    public function __construct($db, $apiKey, $endpoint = 'https://api.deepseek.com/v1/chat/completions') {
-        $this->db = $db;
-        $this->deepseekApiKey = $apiKey;
-        $this->deepseekApiEndpoint = $endpoint;
-        
-        // إنشاء محرك البحث التقليدي للاستخدام كنسخة احتياطية
-        if (class_exists('SearchEngine')) {
-            $this->searchEngine = new SearchEngine($db);
-        }
     }
-
+    
     /**
-     * إجراء بحث معزز بالذكاء الاصطناعي
+     * توليد إرشادات محددة للحالة الصحية
+     * 
+     * @param string $condition الحالة الصحية
+     * @return array إرشادات استخدام الأدوية لهذه الحالة
+     */
+    private function generateConditionSpecificGuidelines($condition) {
+        // استعلام الذكاء الاصطناعي للحصول على إرشادات خاصة بالحالة الصحية
+        $prompt = <<<PROMPT
+قدم إرشادات استخدام الأدوية وتوصيات عامة لحالة: $condition
+قدم النتائج بإيجاز في 3 نقاط فقط تتعلق بكيفية استخدام الأدوية بشكل صحيح لهذه الحالة المحددة.
+PROMPT;
+
+        $data = [
+            'model' => 'deepseek-chat',
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => 'أنت مساعد طبي موثوق يقدم إرشادات دقيقة وموجزة حول استخدام الأدوية للحالات الصحية المختلفة.'
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $prompt
+                ]
+            ],
+            'temperature' => 0.3,
+            'max_tokens' => 150
+        ];
+        
+        try {
+            $response = $this->callDeepSeekAPI($data);
+            
+            if (isset($response['choices'][0]['message']['content'])) {
+                $content = $response['choices'][0]['message']['content'];
+                
+                // تنظيف النص وتقسيمه إلى نقاط
+                $lines = preg_split('/\r\n|\r|\n/', $content);
+                $guidelines = [];
+                
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (empty($line)) continue;
+                    
+                    // إزالة الترقيم في بداية السطر إن وجد
+                    $line = preg_replace('/^[\d\-\.\*]+[\.\)\-]\s*/', '', $line);
+                    
+                    if (!empty($line)) {
+                        $guidelines[] = $line;
+                    }
+                }
+                
+                return $guidelines;
+            }
+        } catch (Exception $e) {
+            error_log("Failed to generate condition specific guidelines: " . $e->getMessage());
+        }
+        
+        // إرشادات افتراضية في حالة الفشل
+        return [
+            'اتبع تعليمات الطبيب حول كيفية تناول الدواء وجرعته',
+            'أكمل دورة العلاج الموصوفة بالكامل، حتى لو شعرت بتحسن قبل انتهائها',
+            'راقب أي آثار جانبية غير عادية واستشر الطبيب إذا ظهرت عليك أعراض شديدة'
+        ];
+    }
+    
+    /**
+     * الحصول على معلومات حول الحالة الصحية
+     * 
+     * @param string $healthCondition الحالة الصحية
+     * @return array معلومات عن الحالة الصحية
+     */
+    private function getHealthConditionInfo($healthCondition) {
+        $prompt = <<<PROMPT
+قدم معلومات موجزة وموثوقة عن الحالة الصحية التالية: $healthCondition
+
+المطلوب تقديم المعلومات التالية بتنسيق JSON:
+1. وصف موجز للحالة
+2. الأعراض الرئيسية
+3. أسباب شائعة
+4. علاجات عامة
+5. متى يجب طلب الرعاية الطبية العاجلة
+
+قدم النتائج بهذا التنسيق:
+{
+    "description": "وصف موجز للحالة",
+    "symptoms": ["عرض 1", "عرض 2", "عرض 3"],
+    "causes": ["سبب 1", "سبب 2", "سبب 3"],
+    "treatments": ["علاج 1", "علاج 2", "علاج 3"],
+    "seek_medical_help": "متى يجب طلب المساعدة الطبية"
+}
+PROMPT;
+
+        $data = [
+            'model' => 'deepseek-chat',
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => 'أنت خبير طبي متخصص في تقديم معلومات صحية دقيقة وموثوقة. تستخدم مصادر علمية موثوقة وتقدم المعلومات بأسلوب واضح وموجز.'
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $prompt
+                ]
+            ],
+            'temperature' => 0.2,
+            'response_format' => [
+                'type' => 'json_object'
+            ]
+        ];
+        
+        try {
+            $response = $this->callDeepSeekAPI($data);
+            
+            if (isset($response['choices'][0]['message']['content'])) {
+                $content = $response['choices'][0]['message']['content'];
+                $result = json_decode($content, true);
+                
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $result;
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Failed to get health condition info: " . $e->getMessage());
+        }
+        
+        // معلومات افتراضية في حالة الفشل
+        return [
+            'description' => "معلومات عن " . $healthCondition,
+            'symptoms' => ["يرجى استشارة الطبيب للتعرف على الأعراض"],
+            'causes' => ["متعددة ومتنوعة، يمكن للطبيب تحديدها"],
+            'treatments' => ["يعتمد العلاج على تشخيص الحالة من قبل الطبيب المختص"],
+            'seek_medical_help' => "يجب طلب المساعدة الطبية عند ظهور أعراض شديدة أو مستمرة"
+        ];
+    }
+    
+    /**
+     * تعزيز نتائج البحث باقتراحات ومعلومات إضافية
+     * 
+     * @param array $results نتائج البحث الأولية
+     * @param array $analysis تحليل الاستعلام
+     * @param string $query استعلام البحث الأصلي
+     * @return array نتائج البحث المعززة
+     */
+    private function enhanceResults($results, $analysis, $query) {
+        // إضافة تحليل الاستعلام للنتائج
+        $results['query_analysis'] = $analysis;
+        
+        // إضافة اقتراحات بديلة للبحث
+        if (!empty($analysis['suggestions'])) {
+            $results['search_suggestions'] = $analysis['suggestions'];
+        }
+        
+        // إضافة تحذيرات وتنبيهات عامة
+        $results['warnings'] = [
+            'general' => [
+                'يجب استشارة الطبيب قبل تناول أي دواء.',
+                'المعلومات المقدمة هي للإرشاد فقط ولا تغني عن الاستشارة الطبية المتخصصة.'
+            ],
+            'specific' => []
+        ];
+        
+        // إضافة تحذيرات خاصة بالأدوية المعروضة
+        if (!empty($results['results'])) {
+            $pregnancyWarnings = [];
+            $sideEffectsWarnings = [];
+            $interactionWarnings = [];
+            
+            foreach ($results['results'] as $med) {
+                // تحذيرات الحمل
+                if (isset($med['safety_info']['pregnancy_safety']) && 
+                    $med['safety_info']['pregnancy_safety'] !== 'غير معروف' &&
+                    $med['safety_info']['pregnancy_safety'] !== 'لا يؤثر عادة على الحمل') {
+                    $pregnancyWarnings[] = "دواء {$med['trade_name']}: {$med['safety_info']['pregnancy_safety']}";
+                }
+                
+                // تحذيرات الآثار الجانبية الشديدة
+                if (!empty($med['side_effect_severity']['severe'])) {
+                    $sideEffectsWarnings[] = "دواء {$med['trade_name']} قد يسبب آثارًا جانبية شديدة في بعض الحالات";
+                }
+                
+                // تحذيرات التفاعلات
+                if (isset($med['safety_info']['alcohol_interaction']) && 
+                    $med['safety_info']['alcohol_interaction'] !== 'غير معروف') {
+                    $interactionWarnings[] = "دواء {$med['trade_name']}: {$med['safety_info']['alcohol_interaction']}";
+                }
+            }
+            
+            $results['warnings']['specific'] = array_merge(
+                $pregnancyWarnings, 
+                $sideEffectsWarnings, 
+                $interactionWarnings
+            );
+            
+            // تحديد عدد التحذيرات المحددة التي سيتم عرضها
+            $results['warnings']['specific'] = array_slice($results['warnings']['specific'], 0, 5);
+        }
+        
+        return $results;
+    }
+    
+    /**
+     * البحث التقليدي كخطة بديلة - يستخدم في حالة فشل البحث المعزز بالذكاء الاصطناعي
      * 
      * @param string $query استعلام البحث
      * @param array $filters فلاتر البحث
      * @param int $page رقم الصفحة
      * @param int $limit عدد النتائج لكل صفحة
-     * @param bool $useAI استخدام الذكاء الاصطناعي (اختياري، افتراضي: true)
      * @return array نتائج البحث
      */
-    public function search($query, $filters = [], $page = 1, $limit = 12, $useAI = true) {
-        // إذا كان الاستعلام فارغًا أو تم تعطيل الذكاء الاصطناعي، استخدم البحث التقليدي
-        if (empty($query) || !$useAI || empty($this->deepseekApiKey)) {
-            return $this->fallbackSearch($query, $filters, $page, $limit);
+    private function fallbackSearch($query, $filters = [], $page = 1, $limit = 12) {
+        // استخدام محرك البحث التقليدي إذا كان متاحًا
+        if ($this->searchEngine) {
+            return $this->searchEngine->search($query, $filters, $page, $limit);
         }
-
-        try {
-            // تحليل الاستعلام باستخدام DeepSeek API
-            $queryAnalysis = $this->analyzeQuery($query);
-            
-            // التعرف على ما إذا كان المستخدم يبحث عن علاج لحالة صحية معينة
-            $isHealthConditionSearch = $this->isHealthConditionSearch($queryAnalysis);
-            
-            if ($isHealthConditionSearch) {
-                // استخدم البحث الموجه حسب الحالة الصحية
-                $healthCondition = $this->extractHealthCondition($queryAnalysis);
-                $searchParams = $this->buildHealthConditionSearchParams($healthCondition, $filters);
-            } else {
-                // بناء استعلام قاعدة البيانات استنادًا إلى تحليل الذكاء الاصطناعي
-                $searchParams = $this->buildSearchParams($queryAnalysis, $filters);
-            }
-            
-            // تنفيذ البحث في قاعدة البيانات
-            $results = $this->executeSearch($searchParams, $page, $limit);
-            
-            // إضافة المعلومات التفصيلية للأدوية (الجرعات، الآثار الجانبية، إلخ)
-            $results = $this->enrichMedicationsWithDetails($results);
-            
-            // إضافة اقتراحات ومعلومات مفيدة من الذكاء الاصطناعي
-            $enhancedResults = $this->enhanceResults($results, $queryAnalysis, $query);
-            
-            // إضافة نصائح طبية للحالة الصحية إذا كان البحث عن علاج
-            if ($isHealthConditionSearch) {
-                $enhancedResults['health_condition_info'] = $this->getHealthConditionInfo($healthCondition);
-            }
-            
-            return $enhancedResults;
-        } catch (Exception $e) {
-            // تسجيل الخطأ واستخدام البحث التقليدي كخطة بديلة
-            error_log("AISearchEngine error: " . $e->getMessage());
-            return $this->fallbackSearch($query, $filters, $page, $limit);
-        }
+        
+        // تنفيذ بحث بسيط في حالة عدم توفر محرك البحث التقليدي
+        $searchParams = [
+            'whereClauses' => ["(trade_name LIKE ? OR scientific_name LIKE ? OR description LIKE ?)"],
+            'params' => ["%" . $query . "%", "%" . $query . "%", "%" . $query . "%"],
+            'orderBy' => 'visit_count DESC'
+        ];
+        
+        // إضافة الفلاتر
+        $this->mergeUserFilters($searchParams, $filters);
+        
+        // تنفيذ البحث
+        $results = $this->executeSearch($searchParams, $page, $limit);
+        
+        return $results;
     }
 
     /**
@@ -520,7 +1010,7 @@ class AISearchEngine {
             'suggestions' => []
         ];
     }
-
+    
     /**
      * بناء الـ Prompt المحسن لتحليل الاستعلام - بإضافة تحليل للحالات الصحية
      * 
@@ -597,7 +1087,7 @@ PROMPT;
             }
         }
         
-        // البحث عن كلمات مفتاحية تدل على البحث عن علاج
+    // البحث عن كلمات مفتاحية تدل على البحث عن علاج
         $healthSearchKeywords = ['علاج', 'دواء لـ', 'أعاني من', 'مريض بـ', 'مصاب بـ', 'تعالج'];
         foreach ($healthSearchKeywords as $keyword) {
             if (strpos($queryAnalysis['original_query'], $keyword) !== false) {
@@ -665,7 +1155,7 @@ PROMPT;
         
         return $searchParams;
     }
-
+    
     /**
      * بناء معلمات البحث استنادًا إلى تحليل الاستعلام
      * 
@@ -760,7 +1250,8 @@ PROMPT;
             }
         }
     }
-
+    
+    
     /**
      * بناء شروط البحث بالكلمات المفتاحية
      * 
@@ -826,7 +1317,7 @@ PROMPT;
             $searchParams['whereClauses'][] = "(" . implode(" OR ", $keywordsConditions) . ")";
         }
     }
-
+    
     /**
      * تعيين ترتيب نتائج البحث
      * 
@@ -894,7 +1385,7 @@ PROMPT;
             }
         }
     }
-
+    
     /**
      * تنفيذ البحث في قاعدة البيانات باستخدام معلمات البحث
      * 
@@ -980,351 +1471,5 @@ PROMPT;
         
         return $results;
     }
-    
-    /**
-     * إنشاء روابط للأدوية المشابهة والمعلومات ذات الصلة
-     * 
-     * @param array $medication بيانات الدواء
-     * @return array روابط ذات صلة
-     */
-    private function generateMedicationLinks($medication) {
-        $links = [];
-        
-        // بدائل بنفس المادة الفعالة
-        $links['alternatives'] = "search.php?scientific_name=" . urlencode($medication['scientific_name']);
-        
-        // أدوية من نفس الشركة
-        $links['company'] = "search.php?company=" . urlencode($medication['company']);
-        
-        // أدوية من نفس التصنيف
-        $links['category'] = "search.php?category=" . urlencode($medication['category']);
-        
-        // رابط للمقارنة
-        $links['compare'] = "compare.php?ids=" . $medication['id'];
-        
-        return $links;
-    }
-    
-    /**
-     * تصنيف أغراض استخدام الدواء إلى فئات واضحة
-     * 
-     * @param array $medication بيانات الدواء
-     * @return array تصنيفات الاستخدام
-     */
-    private function classifyUsagePurposes($medication) {
-        $categories = [];
-        $indications = $medication['details']['indications'] ?? '';
-        
-        // فحص استخدامات الدواء وتصنيفها
-        $usagePatterns = [
-            'علاج الألم' => ['مسكن', 'تخفيف الألم', 'الصداع', 'آلام'],
-            'خافض للحرارة' => ['خافض حرارة', 'خفض درجة الحرارة', 'الحمى'],
-            'مضاد للالتهاب' => ['مضاد للالتهاب', 'التهاب', 'روماتيزم'],
-            'مضاد حيوي' => ['مضاد حيوي', 'التهاب بكتيري', 'عدوى بكتيرية'],
-            'علاج القلب' => ['ضغط الدم', 'القلب', 'الأوعية الدموية', 'الذبحة'],
-            'علاج السكري' => ['سكري', 'سكر الدم', 'انسولين'],
-            'علاج الجهاز التنفسي' => ['ربو', 'سعال', 'تنفس', 'برد', 'انفلونزا'],
-            'علاج الجهاز الهضمي' => ['هضم', 'معدة', 'حموضة', 'إسهال', 'إمساك'],
-            'مضاد للحساسية' => ['حساسية', 'هستامين', 'طفح جلدي'],
-            'مهدئ ومنوم' => ['قلق', 'توتر', 'أرق', 'نوم']
-        ];
-        
-        foreach ($usagePatterns as $category => $keywords) {
-            foreach ($keywords as $keyword) {
-                if (mb_stripos($indications, $keyword) !== false) {
-                    $categories[] = $category;
-                    break;
-                }
-            }
-        }
-        
-        // إضافة التصنيف من بيانات الدواء مباشرة إذا لم يتم العثور على تصنيف
-        if (empty($categories) && !empty($medication['category'])) {
-            $categories[] = $medication['category'];
-        }
-        
-        return array_unique($categories);
-    }
-    
-    /**
-     * تصنيف الآثار الجانبية حسب شدتها
-     * 
-     * @param array $medication بيانات الدواء
-     * @return array تصنيف الآثار الجانبية
-     */
-    private function classifySideEffects($medication) {
-        $classification = [
-            'mild' => [],
-            'moderate' => [],
-            'severe' => []
-        ];
-        
-        $sideEffects = $medication['details']['side_effects'] ?? '';
-        
-        // كلمات تدل على الآثار الجانبية الخفيفة
-        $mildKeywords = ['خفيف', 'مؤقت', 'شائع', 'بسيط', 'عابر', 'نادر', 'صداع', 'غثيان بسيط', 'دوخة خفيفة', 'نعاس'];
-        
-        // كلمات تدل على الآثار الجانبية المتوسطة
-        $moderateKeywords = ['متوسط', 'تقيؤ', 'إسهال', 'طفح جلدي', 'حكة', 'دوخة شديدة', 'صداع شديد'];
-        
-        // كلمات تدل على الآثار الجانبية الشديدة
-        $severeKeywords = ['خطير', 'شديد', 'نادر جداً', 'تشنجات', 'فقدان الوعي', 'صعوبة في التنفس', 'تورم', 'حساسية مفرطة', 'طارئ'];
-        
-        // استخراج الآثار الجانبية وتصنيفها
-        $effectLines = preg_split('/[.،؛\n]+/u', $sideEffects);
-        
-        foreach ($effectLines as $effect) {
-            $effect = trim($effect);
-            if (empty($effect)) continue;
-            
-            $severity = 'mild'; // افتراضي
-            
-            // تحديد شدة الأثر الجانبي
-            foreach ($severeKeywords as $keyword) {
-                if (mb_stripos($effect, $keyword) !== false) {
-                    $severity = 'severe';
-                    break;
-                }
-            }
-            
-            if ($severity === 'mild') {
-                foreach ($moderateKeywords as $keyword) {
-                    if (mb_stripos($effect, $keyword) !== false) {
-                        $severity = 'moderate';
-                        break;
-                    }
-                }
-            }
-            
-            $classification[$severity][] = $effect;
-        }
-        
-        return $classification;
-    }
-    
-    /**
-     * توليد معلومات الاستخدام الآمن والفعال للدواء
-     * 
-     * @param array $medication بيانات الدواء
-     * @return array معلومات السلامة
-     */
-    private function generateSafetyInfo($medication) {
-        $safetyInfo = [
-            'pregnancy_safety' => 'غير معروف',
-            'driving_safety' => 'غير معروف',
-            'alcohol_interaction' => 'غير معروف',
-            'storage_recommendations' => 'يحفظ في درجة حرارة الغرفة بعيداً عن الرطوبة والحرارة المباشرة',
-            'special_populations' => []
-        ];
-        
-        $contraindications = $medication['details']['contraindications'] ?? '';
-        $interactions = $medication['details']['interactions'] ?? '';
-        $usageInstructions = $medication['details']['usage_instructions'] ?? '';
-        $storageInfo = $medication['details']['storage_info'] ?? '';
-        
-        // تحديد سلامة الاستخدام أثناء الحمل
-        if (mb_stripos($contraindications, 'حامل') !== false || 
-            mb_stripos($contraindications, 'الحمل') !== false) {
-            $safetyInfo['pregnancy_safety'] = 'غير آمن خلال فترة الحمل';
-        } elseif (mb_stripos($contraindications, 'فئة ب') !== false || 
-                 mb_stripos($contraindications, 'فئة c') !== false) {
-            $safetyInfo['pregnancy_safety'] = 'يستخدم بحذر خلال فترة الحمل وتحت إشراف الطبيب';
-        }
-        
-        // تحديد سلامة القيادة
-        if (mb_stripos($usageInstructions, 'نعاس') !== false || 
-            mb_stripos($usageInstructions, 'دوخة') !== false || 
-            mb_stripos($usageInstructions, 'قيادة') !== false) {
-            $safetyInfo['driving_safety'] = 'قد يؤثر على القدرة على القيادة أو تشغيل الآلات';
-        } else {
-            $safetyInfo['driving_safety'] = 'لا يؤثر عادة على القدرة على القيادة';
-        }
-        
-        // تحديد التفاعل مع الكحول
-        if (mb_stripos($interactions, 'كحول') !== false || 
-            mb_stripos($interactions, 'مشروبات كحولية') !== false) {
-            $safetyInfo['alcohol_interaction'] = 'يجب تجنب الكحول أثناء تناول هذا الدواء';
-        }
-        
-        // تحديد توصيات التخزين
-        if (!empty($storageInfo)) {
-            $safetyInfo['storage_recommendations'] = $storageInfo;
-        }
-        
-        // تحديد الفئات الخاصة
-        if (mb_stripos($contraindications, 'كلى') !== false || 
-            mb_stripos($contraindications, 'كلوي') !== false) {
-            $safetyInfo['special_populations'][] = 'مرضى الكلى';
-        }
-        
-        if (mb_stripos($contraindications, 'كبد') !== false || 
-            mb_stripos($contraindications, 'كبدي') !== false) {
-            $safetyInfo['special_populations'][] = 'مرضى الكبد';
-        }
-        
-        if (mb_stripos($contraindications, 'قلب') !== false || 
-            mb_stripos($contraindications, 'قلبي') !== false) {
-            $safetyInfo['special_populations'][] = 'مرضى القلب';
-        }
-        
-        return $safetyInfo;
-    }
-        
-        return $results;
-    }
-
-    /**
-     * توليد تفاصيل الدواء باستخدام الذكاء الاصطناعي
-     * 
-     * @param array $medication بيانات الدواء
-     * @return array تفاصيل الدواء
-     */
-    private function generateMedicationDetails($medication) {
-        try {
-            // البحث أولاً عن تفاصيل الدواء في قاعدة البيانات
-            $details = $this->db->fetchOne("SELECT * FROM medication_details WHERE medication_id = ?", [$medication['id']]);
-            
-            if ($details) {
-                return $details;
-            }
-            
-            // إذا لم تتوفر التفاصيل، قم بتوليدها باستخدام الذكاء الاصطناعي
-            $prompt = $this->buildMedicationDetailsPrompt($medication);
-            
-            $data = [
-                'model' => 'deepseek-chat',
-                'messages' => [
-                    [
-                        'role' => 'system',
-                        'content' => 'أنت خبير صيدلاني متخصص في المعلومات الدوائية. مهمتك توفير معلومات دقيقة وشاملة حول الأدوية استناداً إلى المعلومات المتاحة عن الدواء.'
-                    ],
-                    [
-                        'role' => 'user',
-                        'content' => $prompt
-                    ]
-                ],
-                'temperature' => 0.2,
-                'response_format' => [
-                    'type' => 'json_object'
-                ]
-            ];
-            
-            $response = $this->callDeepSeekAPI($data);
-            
-            if (isset($response['choices'][0]['message']['content'])) {
-                $content = $response['choices'][0]['message']['content'];
-                $detailsResult = json_decode($content, true);
-                
-                // التحقق من صحة التنسيق
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    // حفظ التفاصيل في قاعدة البيانات للاستخدام المستقبلي
-                    $this->saveMedicationDetails($medication['id'], $detailsResult);
-                    
-                    return $detailsResult;
-                }
-            }
-            
-            // إذا فشل توليد التفاصيل، أعد هيكل بيانات فارغ
-            return [
-                'indications' => 'غير متوفر',
-                'dosage' => 'غير متوفر',
-                'side_effects' => 'غير متوفر',
-                'contraindications' => 'غير متوفر',
-                'interactions' => 'غير متوفر',
-                'storage_info' => 'غير متوفر',
-                'usage_instructions' => 'غير متوفر'
-            ];
-        } catch (Exception $e) {
-            error_log("Failed to generate medication details: " . $e->getMessage());
-            
-            // إرجاع هيكل بيانات فارغ في حالة الخطأ
-            return [
-                'indications' => 'غير متوفر',
-                'dosage' => 'غير متوفر',
-                'side_effects' => 'غير متوفر',
-                'contraindications' => 'غير متوفر',
-                'interactions' => 'غير متوفر',
-                'storage_info' => 'غير متوفر',
-                'usage_instructions' => 'غير متوفر'
-            ];
-        }
-    }
-    
-    /**
-     * بناء الـ Prompt لتوليد تفاصيل الدواء
-     * 
-     * @param array $medication بيانات الدواء
-     * @return string الـ prompt المستخدم للتوليد
-     */
-    private function buildMedicationDetailsPrompt($medication) {
-        return <<<PROMPT
-استناداً إلى المعلومات التالية حول الدواء، قم بتوليد تفاصيل شاملة ودقيقة عنه:
-
-اسم الدواء التجاري: {$medication['trade_name']}
-المادة الفعالة: {$medication['scientific_name']}
-الشركة المنتجة: {$medication['company']}
-التصنيف: {$medication['category']}
-الوصف الإضافي: {$medication['description']}
-
-قدم المعلومات التالية بتنسيق JSON:
-1. دواعي الاستعمال (لماذا يُستخدم هذا الدواء وللحالات المرضية التي يعالجها)
-2. الجرعات (كيفية استخدام الدواء للبالغين والأطفال إن أمكن)
-3. الآثار الجانبية (الشائعة والنادرة)
-4. موانع الاستعمال (متى يجب تجنب استخدام هذا الدواء)
-5. التفاعلات الدوائية (مع أدوية أخرى، أطعمة، أو حالات صحية)
-6. ظروف التخزين (كيفية حفظ الدواء)
-7. إرشادات الاستخدام (توجيهات خاصة حول استخدام الدواء)
-
-أعد النتائج بهذا التنسيق:
-{
-    "indications": "دواعي الاستعمال",
-    "dosage": "الجرعات",
-    "side_effects": "الآثار الجانبية",
-    "contraindications": "موانع الاستعمال",
-    "interactions": "التفاعلات الدوائية",
-    "storage_info": "ظروف التخزين",
-    "usage_instructions": "إرشادات الاستخدام"
 }
-
-ملاحظة مهمة: قدم المعلومات بشكل موجز ودقيق. لا تضيف أي تحذيرات أو توصيات إضافية خارج السياق. تأكد من تجنب المعلومات غير المؤكدة أو غير الدقيقة. افترض أن المعلومات ستراجع من قبل صيدلي أو طبيب قبل استخدامها.
-PROMPT;
-    }
-    
-    /**
-     * حفظ تفاصيل الدواء في قاعدة البيانات
-     * 
-     * @param int $medicationId معرف الدواء
-     * @param array $details تفاصيل الدواء
-     * @return bool نجاح العملية
-     */
-    private function saveMedicationDetails($medicationId, $details) {
-        try {
-            // التحقق مما إذا كانت التفاصيل موجودة بالفعل
-            $existingDetails = $this->db->fetchOne("SELECT id FROM medication_details WHERE medication_id = ?", [$medicationId]);
-            
-            $data = [
-                'indications' => $details['indications'] ?? 'غير متوفر',
-                'dosage' => $details['dosage'] ?? 'غير متوفر',
-                'side_effects' => $details['side_effects'] ?? 'غير متوفر',
-                'contraindications' => $details['contraindications'] ?? 'غير متوفر',
-                'interactions' => $details['interactions'] ?? 'غير متوفر',
-                'storage_info' => $details['storage_info'] ?? 'غير متوفر',
-                'usage_instructions' => $details['usage_instructions'] ?? 'غير متوفر',
-                'last_updated' => date('Y-m-d H:i:s')
-            ];
-            
-            if ($existingDetails) {
-                // تحديث التفاصيل الموجودة
-                $this->db->update('medication_details', $data, 'medication_id = ?', [$medicationId]);
-            } else {
-                // إضافة تفاصيل جديدة
-                $data['medication_id'] = $medicationId;
-                $this->db->insert('medication_details', $data);
-            }
-            
-            return true;
-        } catch (Exception $e) {
-            error_log("Failed to save medication details: " . $e->getMessage());
-            return false;
-        }
-    }
+?>
