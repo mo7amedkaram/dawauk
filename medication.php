@@ -1,6 +1,7 @@
 <?php
 // medication.php - صفحة تفاصيل الدواء مع تحسينات عرض البدائل والمثيل
 require_once 'config/database.php';
+require_once 'includes/stats_tracking.php';
 
 // التحقق من وجود معرف الدواء
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
@@ -12,6 +13,8 @@ $medicationId = (int) $_GET['id'];
 
 // الحصول على بيانات الدواء
 $db = Database::getInstance();
+$statsTracker = new StatsTracker($db);
+
 $medication = $db->fetchOne("SELECT * FROM medications WHERE id = ?", [$medicationId]);
 
 // التحقق من وجود الدواء
@@ -19,6 +22,9 @@ if (!$medication) {
     header('Location: index.php');
     exit;
 }
+
+// تسجيل زيارة الدواء
+$statsTracker->trackMedicationVisit($medicationId);
 
 // الحصول على تفاصيل الدواء الإضافية
 $medicationDetails = $db->fetchOne("SELECT * FROM medication_details WHERE medication_id = ?", [$medicationId]);
@@ -49,6 +55,15 @@ $therapeuticAlternatives = $db->fetchAll("
     ORDER BY ma.similarity_score DESC, m.current_price ASC
     LIMIT 5
 ", [$medicationId, $medication['scientific_name']]);
+
+// جلب الأدوية المشابهة الأكثر زيارة
+$similarPopularMeds = $db->fetchAll(
+    "SELECT * FROM medications 
+     WHERE scientific_name = ? AND id != ? 
+     ORDER BY visit_count DESC 
+     LIMIT 5",
+    [$medication['scientific_name'], $medicationId]
+);
 
 // إعداد معلومات الصفحة
 $pageTitle = $medication['trade_name'];
@@ -83,6 +98,11 @@ include 'includes/header.php';
                 <?php else: ?>
                     <div class="med-detail-img d-flex align-items-center justify-content-center">
                         <i class="fas fa-prescription-bottle-alt fa-5x text-secondary"></i>
+                        <?php if (isset($_SESSION['is_admin']) && $_SESSION['is_admin']): ?>
+                            <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="fetchImageFromGoogle(<?php echo $medicationId; ?>)">
+                                <i class="fas fa-image me-1"></i> جلب صورة من جوجل
+                            </button>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -152,6 +172,15 @@ include 'includes/header.php';
                             <li>
                                 <span class="label">تاريخ تحديث السعر:</span>
                                 <span><?php echo date('d/m/Y', strtotime($medication['price_updated_date'])); ?></span>
+                            </li>
+                        <?php endif; ?>
+                        
+                        <?php if (!empty($medication['visit_count'])): ?>
+                            <li>
+                                <span class="label">عدد الزيارات:</span>
+                                <span>
+                                    <span class="badge bg-secondary"><?php echo number_format($medication['visit_count']); ?></span>
+                                </span>
                             </li>
                         <?php endif; ?>
                     </ul>
@@ -312,6 +341,51 @@ include 'includes/header.php';
                 </div>
             </div>
             
+            <!-- الأدوية المشابهة الأكثر زيارة -->
+            <?php if (!empty($similarPopularMeds)): ?>
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i> الأدوية المشابهة الأكثر زيارة</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>الاسم التجاري</th>
+                                    <th>الشركة</th>
+                                    <th>السعر</th>
+                                    <th>عدد الزيارات</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($similarPopularMeds as $med): ?>
+                                    <tr>
+                                        <td>
+                                            <a href="medication.php?id=<?php echo $med['id']; ?>" class="text-decoration-none">
+                                                <strong><?php echo $med['trade_name']; ?></strong>
+                                            </a>
+                                        </td>
+                                        <td><?php echo $med['company']; ?></td>
+                                        <td><?php echo number_format($med['current_price'], 2); ?> ج.م</td>
+                                        <td>
+                                            <span class="badge bg-secondary"><?php echo number_format($med['visit_count']); ?></span>
+                                        </td>
+                                        <td>
+                                            <a href="medication.php?id=<?php echo $med['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+            
             <!-- الأدوية المثيلة (نفس المادة الفعالة ونفس الشركة) -->
             <?php if (!empty($equivalentMeds)): ?>
             <div class="card mb-4" id="equivalents">
@@ -364,7 +438,7 @@ include 'includes/header.php';
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <a href="compare.php?id1=<?php echo $medicationId; ?>&id2=<?php echo $eq['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                            <a href="compare.php?ids=<?php echo $medicationId . ',' . $eq['id']; ?>" class="btn btn-sm btn-outline-primary">
                                                 مقارنة
                                             </a>
                                         </td>
@@ -458,7 +532,6 @@ include 'includes/header.php';
                                                         <span class="percentage"><?php echo round($percentageDiff); ?>%</span>
                                                         <div class="progress" style="height: 5px;">
                                                             <div class="progress-bar bg-success" style="width: <?php echo min(round($percentageDiff), 100); ?>%;"></div>
-                                                        </div>
                                                     </div>
                                                 <?php elseif ($priceDiff < 0): ?>
                                                     <span class="badge bg-danger">أغلى</span>
@@ -471,7 +544,7 @@ include 'includes/header.php';
                                                     <a href="medication.php?id=<?php echo $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
-                                                    <a href="compare.php?id1=<?php echo $medicationId; ?>&id2=<?php echo $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                                    <a href="compare.php?ids=<?php echo $medicationId . ',' . $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
                                                         <i class="fas fa-exchange-alt"></i>
                                                     </a>
                                                 </div>
@@ -490,7 +563,7 @@ include 'includes/header.php';
                     
                     <!-- زر المقارنة -->
                     <div class="text-center mt-3">
-                        <a href="compare.php?id1=<?php echo $medicationId; ?>" class="btn btn-primary">
+                        <a href="compare.php?ids=<?php echo $medicationId; ?>" class="btn btn-primary">
                             <i class="fas fa-balance-scale me-2"></i> المقارنة المتقدمة بين الأدوية
                         </a>
                     </div>
@@ -569,7 +642,7 @@ include 'includes/header.php';
                                                 <a href="medication.php?id=<?php echo $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                <a href="compare.php?id1=<?php echo $medicationId; ?>&id2=<?php echo $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                                <a href="compare.php?ids=<?php echo $medicationId . ',' . $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-exchange-alt"></i>
                                                 </a>
                                             </div>
@@ -591,7 +664,7 @@ include 'includes/header.php';
     </div>
 </div>
 
-<!-- جافاسكريبت لتصفية البدائل -->
+<!-- جافاسكريبت لتصفية البدائل وجلب الصور -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // أزرار تصفية البدائل
@@ -622,6 +695,43 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     });
+    
+    // جلب صورة من جوجل (للمسؤولين فقط)
+    window.fetchImageFromGoogle = function(medicationId) {
+        if (!confirm('هل تريد جلب صورة لهذا الدواء من جوجل؟')) {
+            return;
+        }
+        
+        // عرض مؤشر التحميل
+        const imageContainer = document.querySelector('.med-detail-img');
+        imageContainer.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin fa-3x text-primary"></i><p class="mt-2">جاري جلب الصورة...</p></div>';
+        
+        // إرسال طلب لجلب الصورة
+        fetch('fetch_image.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'id=' + medicationId
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // تحديث الصورة
+                imageContainer.innerHTML = '<img src="' + data.image_url + '" class="img-fluid mb-3" alt="صورة الدواء">';
+                alert('تم جلب الصورة بنجاح!');
+            } else {
+                // عرض رسالة الخطأ
+                imageContainer.innerHTML = '<div class="d-flex align-items-center justify-content-center flex-column"><i class="fas fa-prescription-bottle-alt fa-5x text-secondary"></i><p class="text-danger mt-2">' + data.message + '</p></div>';
+                alert('فشل في جلب الصورة: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching image:', error);
+            imageContainer.innerHTML = '<div class="d-flex align-items-center justify-content-center flex-column"><i class="fas fa-prescription-bottle-alt fa-5x text-secondary"></i><p class="text-danger mt-2">حدث خطأ أثناء جلب الصورة</p></div>';
+            alert('حدث خطأ أثناء جلب الصورة');
+        });
+    };
 });
 </script>
 
