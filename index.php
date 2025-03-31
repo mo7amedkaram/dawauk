@@ -1,14 +1,6 @@
 <?php
-// index.php - تحديث الصفحة الرئيسية لتضمين البحث المحسن بالذكاء الاصطناعي
+// index.php - تحديث الصفحة الرئيسية لدعم طرق البحث المتعددة
 require_once 'config/database.php';
-
-// تضمين تكوين الذكاء الاصطناعي
-if (file_exists('ai_config.php')) {
-    require_once 'ai_config.php';
-    $useAiSearch = isAISearchEnabled();
-} else {
-    $useAiSearch = false;
-}
 
 // إعداد معلومات الصفحة
 $pageTitle = 'الرئيسية';
@@ -30,27 +22,25 @@ include 'includes/header.php';
     <div class="container">
         <div class="hero-content">
             <h1 class="hero-title">دليلك الشامل للأدوية</h1>
-            <p class="hero-subtitle">ابحث عن الأدوية، قارن الأسعار، واطلع على المعلومات التفصيلية لأكثر من 10,000 دواء</p>
+            <p class="hero-subtitle">ابحث عن الأدوية، قارن الأسعار، واطلع على المعلومات التفصيلية لأكثر من 25,000 دواء</p>
             <div class="search-big">
                 <form action="search.php" method="GET">
                     <div class="input-group position-relative">
                         <input 
                             type="search" 
                             class="form-control form-control-lg search-autocomplete" 
-                            placeholder="<?php echo $useAiSearch ? 'ابحث بسؤال مثل: ما هو أفضل دواء للصداع؟ أو اسم دواء...' : 'ابحث عن اسم دواء، مادة فعالة، باركود أو استخدم * بدل الحروف غير المعروفة...'; ?>" 
+                            placeholder="ابحث بالاسم التجاري أو المادة الفعالة أو الباركود..." 
                             name="q"
                             autocomplete="off"
                         >
-                        <button class="btn <?php echo $useAiSearch ? 'ai-search-btn' : 'btn-light'; ?>" type="submit">
-                            <i class="fas <?php echo $useAiSearch ? 'fa-robot' : 'fa-search'; ?> me-2"></i> بحث
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-search me-2"></i> بحث
                         </button>
                         <!-- هنا سيتم إضافة نتائج البحث التلقائي بالجافاسكريبت -->
                     </div>
-                    <?php if ($useAiSearch): ?>
                     <div class="mt-2 text-white text-center">
-                        <small><i class="fas fa-lightbulb me-1"></i> يمكنك البحث بلغتك الطبيعية مثل: "أعاني من صداع وحرارة" أو "بديل أرخص للبروفين"</small>
+                        <small><i class="fas fa-lightbulb me-1"></i> تلميح: استخدم طرق البحث المختلفة بالنقر على حقل البحث</small>
                     </div>
-                    <?php endif; ?>
                 </form>
             </div>
         </div>
@@ -63,14 +53,10 @@ include 'includes/header.php';
     <div class="features-flex">
         <div class="feature-item shadow-hover">
             <div class="feature-icon">
-                <?php if ($useAiSearch): ?>
-                <i class="fas fa-robot"></i>
-                <?php else: ?>
                 <i class="fas fa-search"></i>
-                <?php endif; ?>
             </div>
-            <h3><?php echo $useAiSearch ? 'بحث ذكي' : 'بحث متقدم'; ?></h3>
-            <p><?php echo $useAiSearch ? 'ابحث عن الأدوية باستخدام اللغة الطبيعية، اطرح أسئلتك أو اوصف أعراضك للحصول على أفضل النتائج' : 'ابحث عن الأدوية باستخدام الاسم التجاري، المادة الفعالة، الشركة المصنعة أو التصنيف'; ?></p>
+            <h3>بحث متعدد الطرق</h3>
+            <p>بحث ذكي يدعم أكثر من طريقة للبحث عن الدواء الذي تحتاجه بسهولة ودقة</p>
         </div>
         <div class="feature-item shadow-hover">
             <div class="feature-icon">
@@ -266,99 +252,91 @@ include 'includes/header.php';
         <div class="grid-span-6">
             <div class="card h-100 shadow-hover">
                 <div class="card-body">
-                    <?php if ($useAiSearch): ?>
-                    <h4><i class="fas fa-robot text-primary me-2"></i> البحث الذكي</h4>
-                    <p>استخدم قوة الذكاء الاصطناعي للبحث عن الأدوية، اطرح أسئلتك بلغتك الطبيعية واحصل على إجابات دقيقة حول الأدوية وبدائلها.</p>
-                    <a href="search.php" class="btn ai-search-btn">جرب البحث الذكي</a>
-                    <?php else: ?>
                     <h4><i class="fas fa-search-plus text-primary me-2"></i> البحث المتقدم</h4>
-                    <p>ابحث عن الأدوية باستخدام معايير متعددة مثل الاسم، المادة الفعالة، الشركة المصنعة، التصنيف، ونطاق السعر.</p>
+                    <p>استخدم خيارات البحث المتعددة للوصول للدواء المناسب بسرعة، سواء كنت تعرف الاسم بالكامل أو جزء منه أو كنت تبحث عن أدوية مشابهة في النطق.</p>
                     <a href="search.php" class="btn btn-outline-primary">بحث متقدم</a>
-                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<?php if ($useAiSearch): ?>
-<!-- قسم المساعد الذكي -->
-<section class="container mb-5 bg-light p-4 rounded shadow-sm ai-assistant-section">
-    <h2 class="section-title text-center mb-4">مساعدك الذكي في عالم الأدوية</h2>
+<!-- قسم طرق البحث -->
+<section class="container mb-5 bg-light p-4 rounded shadow-sm">
+    <h2 class="section-title text-center mb-4">طرق البحث المتاحة</h2>
     
     <div class="row align-items-center">
         <div class="col-md-6 mb-4 mb-md-0">
-            <div class="ai-assistant-features">
-                <div class="ai-feature-item mb-3">
+            <div class="search-methods-features">
+                <div class="search-feature-item mb-3">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="ai-feature-icon bg-primary text-white me-3">
-                            <i class="fas fa-comment-medical"></i>
+                        <span class="search-feature-icon bg-primary text-white me-3">
+                            <i class="fas fa-search"></i>
                         </span>
-                        <h5 class="mb-0">استفسر عن الأدوية بلغتك الطبيعية</h5>
+                        <h5 class="mb-0">البحث من بداية الاسم</h5>
                     </div>
-                    <p class="text-muted">اطرح أسئلتك حول الأدوية، الاستخدامات، الجرعات، والآثار الجانبية بأسلوبك الخاص.</p>
+                    <p class="text-muted">أسرع طرق البحث حيث يكفي كتابة أول حرفين فقط من اسم الدواء، مع إمكانية استخدام المسافات بدل الأحرف غير المعروفة.</p>
                 </div>
                 
-                <div class="ai-feature-item mb-3">
+                <div class="search-feature-item mb-3">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="ai-feature-icon bg-success text-white me-3">
-                            <i class="fas fa-exchange-alt"></i>
+                        <span class="search-feature-icon bg-success text-white me-3">
+                            <i class="fas fa-font"></i>
                         </span>
-                        <h5 class="mb-0">اكتشف البدائل الدوائية</h5>
+                        <h5 class="mb-0">البحث في أي موضع</h5>
                     </div>
-                    <p class="text-muted">ابحث عن بدائل أرخص أو أكثر فعالية للأدوية التي تستخدمها.</p>
+                    <p class="text-muted">ابحث عن أي جزء من اسم الدواء، سواء في بدايته أو وسطه أو نهايته، ويمكنك استخدام كلمات متعددة للبحث.</p>
                 </div>
                 
-                <div class="ai-feature-item">
+                <div class="search-feature-item">
                     <div class="d-flex align-items-center mb-2">
-                        <span class="ai-feature-icon bg-info text-white me-3">
-                            <i class="fas fa-heartbeat"></i>
+                        <span class="search-feature-icon bg-info text-white me-3">
+                            <i class="fas fa-language"></i>
                         </span>
-                        <h5 class="mb-0">البحث بالأعراض</h5>
+                        <h5 class="mb-0">البحث بالنطق المتشابه</h5>
                     </div>
-                    <p class="text-muted">صف أعراضك واحصل على اقتراحات للأدوية المناسبة (استشر الطبيب دائمًا).</p>
+                    <p class="text-muted">لا تعرف هجاء الدواء بالضبط؟ استخدم هذه الطريقة للبحث باستخدام الأحرف المتشابهة في النطق باللغتين العربية والإنجليزية.</p>
                 </div>
             </div>
         </div>
         
         <div class="col-md-6">
-            <div class="ai-search-examples">
+            <div class="search-examples">
                 <div class="card border-0 shadow-sm">
                     <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i> أمثلة على الأسئلة التي يمكنك طرحها</h5>
+                        <h5 class="mb-0"><i class="fas fa-lightbulb me-2"></i> أمثلة على طرق البحث</h5>
                     </div>
                     <div class="card-body">
-                        <ul class="ai-examples-list">
+                        <ul class="search-examples-list">
                             <li>
-                                <a href="search.php?q=ما+هو+أفضل+دواء+لعلاج+الصداع+النصفي؟" class="ai-example-link">
-                                    ما هو أفضل دواء لعلاج الصداع النصفي؟
-                                </a>
+                                <strong>بداية الاسم:</strong> 
+                                <span class="search-example">au</span> أو
+                                <span class="search-example">au tab</span>
+                                <small class="text-muted d-block mt-1">يبحث عن الأدوية التي تبدأ بهذه الأحرف</small>
                             </li>
                             <li>
-                                <a href="search.php?q=أريد+بديل+أرخص+للكونكور" class="ai-example-link">
-                                    أريد بديل أرخص للكونكور
-                                </a>
+                                <strong>أي موضع:</strong> 
+                                <span class="search-example">tab</span> أو
+                                <span class="search-example">vial</span>
+                                <small class="text-muted d-block mt-1">يبحث عن الأدوية التي تحتوي على هذه الكلمات</small>
                             </li>
                             <li>
-                                <a href="search.php?q=ما+الفرق+بين+بروفين+وبنادول؟" class="ai-example-link">
-                                    ما الفرق بين بروفين وبنادول؟
-                                </a>
+                                <strong>النطق المتشابه:</strong> 
+                                <span class="search-example">pholomoks</span> أو
+                                <span class="search-example">زنتاك</span>
+                                <small class="text-muted d-block mt-1">يبحث عن الأدوية ذات النطق المتشابه</small>
                             </li>
                             <li>
-                                <a href="search.php?q=دواء+للسعال+والبلغم+مناسب+للأطفال" class="ai-example-link">
-                                    دواء للسعال والبلغم مناسب للأطفال
-                                </a>
-                            </li>
-                            <li>
-                                <a href="search.php?q=ما+هي+الآثار+الجانبية+للباراسيتامول" class="ai-example-link">
-                                    ما هي الآثار الجانبية للباراسيتامول؟
-                                </a>
+                                <strong>بحث شامل:</strong> 
+                                <span class="search-example">50</span> أو
+                                <span class="search-example">painkiller</span>
+                                <small class="text-muted d-block mt-1">يبحث في السعر والاسم والفئة وغيرها</small>
                             </li>
                         </ul>
                         
                         <div class="mt-3 text-center">
-                            <a href="search.php" class="btn ai-search-btn">
-                                <i class="fas fa-robot me-2"></i> جرب البحث الذكي الآن
+                            <a href="search.php" class="btn btn-primary">
+                                <i class="fas fa-search me-2"></i> جرب البحث المتقدم الآن
                             </a>
                         </div>
                     </div>
@@ -367,75 +345,6 @@ include 'includes/header.php';
         </div>
     </div>
 </section>
-
-<!-- تنسيقات المساعد الذكي -->
-<style>
-.ai-assistant-section {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 10px;
-}
-
-.ai-feature-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-}
-
-.ai-examples-list {
-    padding-left: 0;
-    list-style: none;
-}
-
-.ai-examples-list li {
-    margin-bottom: 12px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.ai-examples-list li:last-child {
-    margin-bottom: 0;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-
-.ai-example-link {
-    display: block;
-    text-decoration: none;
-    color: #495057;
-    padding: 8px 15px;
-    border-radius: 8px;
-    transition: all 0.3s;
-    position: relative;
-    padding-right: 30px;
-}
-
-.ai-example-link:hover {
-    background-color: rgba(13, 110, 253, 0.1);
-    color: #0d6efd;
-}
-
-.ai-example-link::after {
-    content: '\f35a';
-    font-family: 'Font Awesome 5 Free';
-    font-weight: 900;
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    opacity: 0;
-    transition: all 0.3s;
-}
-
-.ai-example-link:hover::after {
-    opacity: 1;
-    right: 15px;
-}
-</style>
-<?php endif; ?>
 
 <!-- نصائح صحية -->
 <section class="container mb-5 bg-light p-4 rounded shadow-sm">
@@ -470,6 +379,47 @@ include 'includes/header.php';
         </div>
     </div>
 </section>
+
+<!-- تنسيقات إضافية للصفحة الرئيسية -->
+<style>
+/* تنسيقات قسم طرق البحث */
+.search-feature-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.search-examples-list {
+    padding-left: 0;
+    list-style: none;
+}
+
+.search-examples-list li {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.search-examples-list li:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.search-example {
+    display: inline-block;
+    background-color: #f0f8ff;
+    color: #0d6efd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-weight: 600;
+}
+</style>
 
 <?php
 // تضمين ملف الفوتر

@@ -39,49 +39,123 @@ class AISearchEngine {
      * @param bool $useAI استخدام الذكاء الاصطناعي (اختياري، افتراضي: true)
      * @return array نتائج البحث
      */
-    public function search($query, $filters = [], $page = 1, $limit = 12, $useAI = true) {
-        // إذا كان الاستعلام فارغًا أو تم تعطيل الذكاء الاصطناعي، استخدم البحث التقليدي
-        if (empty($query) || !$useAI || empty($this->deepseekApiKey)) {
-            return $this->fallbackSearch($query, $filters, $page, $limit);
-        }
-
-        try {
-            // تحليل الاستعلام باستخدام DeepSeek API
-            $queryAnalysis = $this->analyzeQuery($query);
-            
-            // التعرف على ما إذا كان المستخدم يبحث عن علاج لحالة صحية معينة
-            $isHealthConditionSearch = $this->isHealthConditionSearch($queryAnalysis);
-            
-            if ($isHealthConditionSearch) {
-                // استخدم البحث الموجه حسب الحالة الصحية
-                $healthCondition = $this->extractHealthCondition($queryAnalysis);
-                $searchParams = $this->buildHealthConditionSearchParams($healthCondition, $filters);
-            } else {
-                // بناء استعلام قاعدة البيانات استنادًا إلى تحليل الذكاء الاصطناعي
-                $searchParams = $this->buildSearchParams($queryAnalysis, $filters);
-            }
-            
-            // تنفيذ البحث في قاعدة البيانات
-            $results = $this->executeSearch($searchParams, $page, $limit);
-            
-            // إضافة المعلومات التفصيلية للأدوية (الجرعات، الآثار الجانبية، إلخ)
-            $results = $this->enrichMedicationsWithDetails($results);
-            
-            // إضافة اقتراحات ومعلومات مفيدة من الذكاء الاصطناعي
-            $enhancedResults = $this->enhanceResults($results, $queryAnalysis, $query);
-            
-            // إضافة نصائح طبية للحالة الصحية إذا كان البحث عن علاج
-            if ($isHealthConditionSearch) {
-                $enhancedResults['health_condition_info'] = $this->getHealthConditionInfo($healthCondition);
-            }
-            
-            return $enhancedResults;
-        } catch (Exception $e) {
-            // تسجيل الخطأ واستخدام البحث التقليدي كخطة بديلة
-            error_log("AISearchEngine error: " . $e->getMessage());
-            return $this->fallbackSearch($query, $filters, $page, $limit);
-        }
+  public function search($query, $filters = [], $page = 1, $limit = 12, $useAI = true) {
+    // إذا كان الاستعلام فارغًا أو تم تعطيل الذكاء الاصطناعي، استخدم البحث التقليدي
+    if (empty($query) || !$useAI || empty($this->deepseekApiKey)) {
+        return $this->fallbackSearch($query, $filters, $page, $limit);
     }
+
+    // التعامل مع الاستعلامات القصيرة جدًا من خلال البحث التقليدي
+    if (strlen($query) <= 3 && !is_numeric($query)) {
+        return $this->enhanceTraditionalSearch($query, $filters, $page, $limit);
+    }
+
+    try {
+        // تحليل الاستعلام (مع التخزين المؤقت المدمج)
+        $queryAnalysis = $this->analyzeQuery($query);
+        
+        // التعرف على ما إذا كان المستخدم يبحث عن علاج لحالة صحية معينة
+        $isHealthConditionSearch = $this->isHealthConditionSearch($queryAnalysis);
+        
+        // تنفيذ البحث المناسب
+        if ($isHealthConditionSearch) {
+            // استخدم البحث الموجه حسب الحالة الصحية
+            $healthCondition = $this->extractHealthCondition($queryAnalysis);
+            $searchParams = $this->buildHealthConditionSearchParams($healthCondition, $filters);
+        } else {
+            // بناء استعلام قاعدة البيانات استنادًا إلى تحليل الذكاء الاصطناعي
+            $searchParams = $this->buildSearchParams($queryAnalysis, $filters);
+        }
+        
+        // تنفيذ البحث في قاعدة البيانات
+        $results = $this->executeSearch($searchParams, $page, $limit);
+        
+        // إضافة المعلومات التفصيلية للأدوية (بدون تفاصيل زائدة لتسريع العملية)
+        $results = $this->enrichMedicationsWithBasicDetails($results);
+        
+        // إضافة اقتراحات ومعلومات مفيدة من الذكاء الاصطناعي
+        $enhancedResults = $this->enhanceResults($results, $queryAnalysis, $query);
+        
+        // إضافة نصائح طبية للحالة الصحية إذا كان البحث عن علاج
+        if ($isHealthConditionSearch) {
+            $enhancedResults['health_condition_info'] = $this->getHealthConditionInfoCached($healthCondition);
+        }
+        
+        return $enhancedResults;
+    } catch (Exception $e) {
+        // تسجيل الخطأ واستخدام البحث التقليدي كخطة بديلة
+        error_log("AISearchEngine error: " . $e->getMessage());
+        return $this->fallbackSearch($query, $filters, $page, $limit);
+    }
+}
+
+
+
+
+
+/**
+ * نسخة مبسطة من إثراء الأدوية بالتفاصيل
+ */
+private function enrichMedicationsWithBasicDetails($results) {
+    if (empty($results['results'])) {
+        return $results;
+    }
+    
+    // افترض الحد الأدنى من المعلومات لتسريع العملية
+    foreach ($results['results'] as &$medication) {
+        // المعلومات الأساسية فقط
+        $medication['details'] = $this->getBasicMedicationDetails($medication['id']);
+        
+        // إضافة روابط إلى البدائل المشابهة والشركات المصنعة
+        $medication['links'] = $this->generateMedicationLinks($medication);
+    }
+    
+    return $results;
+}
+
+/**
+ * استرداد تفاصيل أساسية سريعة للدواء بدون معالجة إضافية
+ */
+private function getBasicMedicationDetails($medicationId) {
+    // محاولة الحصول على التفاصيل من قاعدة البيانات أولاً
+    $details = $this->db->fetchOne("SELECT * FROM medication_details WHERE medication_id = ?", [$medicationId]);
+    
+    if ($details) {
+        return $details;
+    }
+    
+    // إذا لم تكن التفاصيل متوفرة، أعد هيكل بيانات فارغ
+    return [
+        'indications' => 'غير متوفر',
+        'dosage' => 'غير متوفر',
+        'side_effects' => 'غير متوفر',
+        'contraindications' => 'غير متوفر',
+        'interactions' => 'غير متوفر',
+        'storage_info' => 'غير متوفر',
+        'usage_instructions' => 'غير متوفر'
+    ];
+}
+
+/**
+ * نسخة مخزنة مؤقتًا من معلومات الحالة الصحية
+ */
+private function getHealthConditionInfoCached($healthCondition) {
+    static $cache = [];
+    
+    // التحقق من وجود المعلومات في الذاكرة المؤقتة
+    $cacheKey = md5($healthCondition);
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+    
+    // الحصول على المعلومات من API أو من الوظيفة الأصلية
+    $info = $this->getHealthConditionInfo($healthCondition);
+    
+    // حفظ في الذاكرة المؤقتة
+    $cache[$cacheKey] = $info;
+    
+    return $info;
+}
     
     /**
      * إنشاء روابط للأدوية المشابهة والمعلومات ذات الصلة
@@ -433,42 +507,52 @@ PROMPT;
      * @return array استجابة API
      * @throws Exception
      */
-    private function callDeepSeekAPI($data) {
-        $ch = curl_init($this->deepseekApiEndpoint);
-        
-        $headers = [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $this->deepseekApiKey
-        ];
-        
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        
-        if (curl_errno($ch)) {
-            throw new Exception('DeepSeek API request failed: ' . curl_error($ch));
-        }
-        
+private function callDeepSeekAPI($data) {
+    $ch = curl_init($this->deepseekApiEndpoint);
+    
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $this->deepseekApiKey
+    ];
+    
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+    
+    // تقليل المهلة إلى 10 ثوانٍ بدلاً من 30
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    
+    // إضافة خيارات لتسريع الاتصال
+    curl_setopt($ch, CURLOPT_TCP_FASTOPEN, true);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+    
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    if (curl_errno($ch)) {
         curl_close($ch);
-        
-        if ($httpCode != 200) {
-            throw new Exception("DeepSeek API returned error code: $httpCode, Response: $response");
-        }
-        
-        $decodedResponse = json_decode($response, true);
-        
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new Exception('Failed to decode DeepSeek API response: ' . json_last_error_msg());
-        }
-        
-        return $decodedResponse;
+        // استخدام البحث التقليدي في حالة فشل الاتصال
+        return ['status' => 'error', 'message' => 'فشل الاتصال بـ API: ' . curl_error($ch)];
     }
     
+    curl_close($ch);
+    
+    if ($httpCode != 200) {
+        // استخدام البحث التقليدي في حالة خطأ في API
+        return ['status' => 'error', 'message' => "رمز الخطأ من API: $httpCode, الاستجابة: $response"];
+    }
+    
+    $decodedResponse = json_decode($response, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        return ['status' => 'error', 'message' => 'فشل في فك تشفير استجابة API: ' . json_last_error_msg()];
+    }
+    
+    return $decodedResponse;
+}
     /**
      * البحث باستخدام اللغة الطبيعية (بحث شبيه بالدردشة) - محسن لدقة المعلومات الطبية
      * 
@@ -866,6 +950,54 @@ PROMPT;
         ];
     }
     
+    
+    
+    
+    /**
+ * نسخة محسنة من البحث التقليدي مع بعض التحسينات الذكية
+ */
+private function enhanceTraditionalSearch($query, $filters = [], $page = 1, $limit = 12) {
+    // نفذ البحث التقليدي أولاً
+    $results = $this->fallbackSearch($query, $filters, $page, $limit);
+    
+    // أضف تحليل بسيط للاستعلام
+    $results['query_analysis'] = $this->simpleQueryAnalysis($query);
+    
+    // أضف بعض الاقتراحات البسيطة
+    $results['search_suggestions'] = $this->generateSimpleSuggestions($query);
+    
+    return $results;
+}
+
+
+/**
+ * إنشاء اقتراحات بسيطة للبحث بدون API
+ */
+private function generateSimpleSuggestions($query) {
+    // استعلام بسيط لاقتراح أدوية مشابهة
+    $suggestions = [];
+    
+    if (strlen($query) >= 2) {
+        $sql = "
+            SELECT DISTINCT trade_name 
+            FROM medications 
+            WHERE trade_name LIKE ? 
+            LIMIT 3
+        ";
+        
+        $results = $this->db->fetchAll($sql, ["%" . substr($query, 0, 2) . "%"]);
+        
+        foreach ($results as $result) {
+            if (strtolower($result['trade_name']) !== strtolower($query)) {
+                $suggestions[] = $result['trade_name'];
+            }
+        }
+    }
+    
+    return $suggestions;
+}
+
+    
     /**
      * تعزيز نتائج البحث باقتراحات ومعلومات إضافية
      * 
@@ -968,49 +1100,103 @@ PROMPT;
      * @param string $query استعلام البحث
      * @return array نتيجة التحليل
      */
-    private function analyzeQuery($query) {
-        $prompt = $this->buildAnalysisPrompt($query);
-        
-        $data = [
-            'model' => 'deepseek-chat',
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'أنت مساعد مختص في فهم استعلامات البحث عن الأدوية والحالات الصحية. مهمتك تحليل استعلامات المستخدمين وتحويلها إلى معايير بحث دقيقة مع التعرف على الحالات المرضية والأعراض.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
-            ],
-            'temperature' => 0.1,
-            'response_format' => [
-                'type' => 'json_object'
-            ]
-        ];
-
-        $response = $this->callDeepSeekAPI($data);
-        
-        if (isset($response['choices'][0]['message']['content'])) {
-            $content = $response['choices'][0]['message']['content'];
-            $analysisResult = json_decode($content, true);
-            
-            // التحقق من صحة التنسيق والبيانات المطلوبة
-            if (json_last_error() === JSON_ERROR_NONE && isset($analysisResult['keywords'])) {
-                return $analysisResult;
-            }
-        }
-        
-        // إذا فشل التحليل، أعد ببنية بسيطة
-        return [
-            'original_query' => $query,
-            'keywords' => [$query],
-            'entities' => [],
-            'intent' => 'general_search',
-            'suggestions' => []
-        ];
+  private function analyzeQuery($query) {
+    // استخدام التخزين المؤقت للاستعلامات المتكررة
+    static $cache = [];
+    
+    // التحقق من وجود الاستعلام في الذاكرة المؤقتة
+    $cacheKey = md5($query);
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
     }
     
+    // لاستخدام تحليل أبسط وأسرع للاستعلامات القصيرة جدًا
+    if (strlen($query) <= 3 || str_word_count($query) <= 1) {
+        $simpleAnalysis = $this->simpleQueryAnalysis($query);
+        $cache[$cacheKey] = $simpleAnalysis;
+        return $simpleAnalysis;
+    }
+    
+    // بناء prompt لتحليل الاستعلام
+    $prompt = $this->buildAnalysisPrompt($query);
+    
+    // تقليل مقدار العمل على الـ API عن طريق تقليل سياق المطالبة
+    $data = [
+        'model' => 'deepseek-chat',
+        'messages' => [
+            [
+                'role' => 'system',
+                'content' => 'أنت مساعد متخصص في تحليل استعلامات البحث عن الأدوية.'
+            ],
+            [
+                'role' => 'user',
+                'content' => $prompt
+            ]
+        ],
+        'temperature' => 0.1,
+        'max_tokens' => 250, // تقليل حجم الاستجابة للإسراع
+        'response_format' => [
+            'type' => 'json_object'
+        ]
+    ];
+
+    // الاتصال بـ API للتحليل
+    $response = $this->callDeepSeekAPI($data);
+    
+    // التعامل مع الخطأ والرجوع إلى التحليل البسيط
+    if (isset($response['status']) && $response['status'] === 'error') {
+        $simpleAnalysis = $this->simpleQueryAnalysis($query);
+        $cache[$cacheKey] = $simpleAnalysis;
+        return $simpleAnalysis;
+    }
+    
+    // استخراج تحليل الاستعلام من الاستجابة
+    if (isset($response['choices'][0]['message']['content'])) {
+        $content = $response['choices'][0]['message']['content'];
+        $analysisResult = json_decode($content, true);
+        
+        // التحقق من صحة البيانات
+        if (json_last_error() === JSON_ERROR_NONE && isset($analysisResult['keywords'])) {
+            // حفظ في الذاكرة المؤقتة للاستخدام المستقبلي
+            $cache[$cacheKey] = $analysisResult;
+            return $analysisResult;
+        }
+    }
+    
+    // إذا فشل التحليل المتقدم، استخدم التحليل البسيط
+    $simpleAnalysis = $this->simpleQueryAnalysis($query);
+    $cache[$cacheKey] = $simpleAnalysis;
+    return $simpleAnalysis;
+}
+
+
+
+/**
+ * تحليل بسيط وسريع للاستعلامات البسيطة
+ * 
+ * @param string $query استعلام البحث
+ * @return array نتيجة التحليل البسيط
+ */
+private function simpleQueryAnalysis($query) {
+    // إرجاع هيكل تحليل بسيط وسريع
+    return [
+        'original_query' => $query,
+        'keywords' => [$query],
+        'entities' => [
+            ['type' => 'drug_name', 'value' => $query, 'confidence' => 0.5]
+        ],
+        'intent' => 'general_search',
+        'suggestions' => [],
+        'health_condition' => [
+            'is_health_search' => false,
+            'condition_name' => '',
+            'symptoms' => []
+        ]
+    ];
+}
+
+
+
     /**
      * بناء الـ Prompt المحسن لتحليل الاستعلام - بإضافة تحليل للحالات الصحية
      * 

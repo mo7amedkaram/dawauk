@@ -1,3 +1,91 @@
 [30-Mar-2025 03:10:35 UTC] PHP Parse error:  syntax error, unexpected token "public", expecting end of file in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 54
 [30-Mar-2025 03:10:45 UTC] PHP Parse error:  syntax error, unexpected token "public", expecting end of file in /home/ilsaaftg/ilsinitiative.org/pharmacy/includes/stats_tracking.php on line 54
 [30-Mar-2025 03:50:43 UTC] Failed to generate medication details: DeepSeek API request failed: HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)
+[31-Mar-2025 01:45:44 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:45:44 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:45:45 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:45:45 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:45:45 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:45:58 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:46:57 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:46:59 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:47:00 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:47:11 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:47:56 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:47:56 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:47:56 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:47:56 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:47:56 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:48:06 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:50:59 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:51:11 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:51:11 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 01:51:19 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 14:56:48 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197
+[31-Mar-2025 14:56:55 UTC] PHP Fatal error:  Uncaught DivisionByZeroError: Division by zero in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php:197
+Stack trace:
+#0 {main}
+  thrown in /home/ilsaaftg/ilsinitiative.org/pharmacy/medication.php on line 197

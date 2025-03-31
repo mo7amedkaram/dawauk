@@ -1533,3 +1533,320 @@ h1, h2, h3, h4, h5, h6 {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+
+/* إضافة للملف assets/css/style.css */
+
+/* تنسيقات مؤشر تقدم البحث بالذكاء الاصطناعي */
+.ai-search-progress-container {
+    display: none;
+    margin-top: 20px;
+    padding: 20px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.ai-search-progress {
+    position: relative;
+}
+
+.ai-search-progress-bar {
+    height: 6px;
+    background-color: #f0f0f0;
+    border-radius: 10px;
+    margin-bottom: 30px;
+    overflow: hidden;
+}
+
+.ai-search-progress-bar-inner {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #0d6efd, #198754);
+    border-radius: 10px;
+    transition: width 0.3s ease-in-out;
+}
+
+.ai-search-progress-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.ai-search-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 25%;
+    position: relative;
+}
+
+.ai-search-step::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: calc(-50% + 10px);
+    width: calc(100% - 20px);
+    height: 2px;
+    background-color: #e9ecef;
+    z-index: 1;
+}
+
+.ai-search-step:first-child::before {
+    display: none;
+}
+
+.ai-search-step-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #e9ecef;
+    position: relative;
+    z-index: 2;
+    transition: all 0.3s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ai-search-step.active .ai-search-step-dot {
+    background-color: #0d6efd;
+    box-shadow: 0 0 0 5px rgba(13, 110, 253, 0.1);
+    animation: pulse 2s infinite;
+}
+
+.ai-search-step.completed .ai-search-step-dot {
+    background-color: #198754;
+}
+
+.ai-search-step.completed .ai-search-step-dot::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: white;
+    font-size: 12px;
+}
+
+.ai-search-step.completed::before,
+.ai-search-step.active::before {
+    background-color: #198754;
+}
+
+.ai-search-step-label {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #6c757d;
+    text-align: center;
+    transition: all 0.3s ease-in-out;
+}
+
+.ai-search-step.active .ai-search-step-label {
+    color: #0d6efd;
+    font-weight: 600;
+}
+
+.ai-search-step.completed .ai-search-step-label {
+    color: #198754;
+}
+
+.ai-search-progress-message {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 1rem;
+    color: #0d6efd;
+    font-weight: 500;
+}
+
+/* تأثير النبض */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(13, 110, 253, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+    }
+}
+
+/* تنسيقات للأجهزة المحمولة */
+@media (max-width: 576px) {
+    .ai-search-step-label {
+        font-size: 0.75rem;
+    }
+    
+    .ai-search-progress-steps {
+        margin-bottom: 35px;
+    }
+}
+
+/* تنسيقات إضافية لطرق البحث المتعددة */
+
+/* تنسيقات أزرار طرق البحث */
+.search-methods {
+    margin-bottom: 10px;
+}
+
+.search-method-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.search-method-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-bottom: 8px;
+}
+
+.search-method-btn {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background-color: #e9ecef;
+    border: none;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.search-method-btn.active {
+    background-color: #0d6efd;
+    color: white;
+}
+
+.search-method-btn:hover {
+    background-color: #0d6efd;
+    color: white;
+}
+
+/* تنسيقات نصائح البحث */
+.search-tips {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.85rem;
+    display: none;
+}
+
+.search-tips-content {
+    color: #6c757d;
+}
+
+.search-tips-list {
+    padding-right: 20px;
+    margin: 10px 0;
+}
+
+.search-tips-list li {
+    margin-bottom: 5px;
+}
+
+.search-tips-example {
+    font-style: italic;
+    color: #0d6efd;
+    margin-top: 8px;
+    margin-bottom: 0;
+}
+
+/* تنسيقات شارة طريقة البحث */
+.search-method-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 1px 6px;
+    background-color: #e3f2fd;
+    color: #0d6efd;
+    border-radius: 10px;
+    margin-right: 5px;
+}
+
+/* تحسينات تنسيقات البحث التلقائي */
+.search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background-color: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    border-radius: 0 0 8px 8px;
+    overflow: hidden;
+    max-height: 550px; /* زيادة الارتفاع لاستيعاب طرق البحث الجديدة */
+    overflow-y: auto;
+    margin-top: 5px;
+    border: 1px solid #dee2e6;
+    display: none;
+}
+
+.search-dropdown-header {
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+/* تنسيقات القوائم المنسدلة في الصفحة الرئيسية */
+.hero-section .search-dropdown {
+    width: 100%;
+    max-width: 600px;
+    margin: 5px auto 0;
+    left: 0;
+    right: 0;
+}
+
+/* تحسينات عرض نتائج البحث */
+.search-result-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.search-result-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* أنماط حالة التحميل */
+.search-loading {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+}
+
+.search-loading i {
+    animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* تنسيقات إضافية للنتائج غير الموجودة */
+.search-no-results {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.search-no-results i {
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+.search-no-results p {
+    margin-bottom: 5px;
+    font-weight: 600;
+}
+
+.search-no-results small {
+    opacity: 0.8;
+}
