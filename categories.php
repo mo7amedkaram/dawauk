@@ -5,6 +5,7 @@ require_once 'config/database.php';
 // إعداد معلومات الصفحة
 $pageTitle = 'تصنيفات الأدوية';
 $currentPage = 'categories';
+$siteName = 'دواؤك';
 
 $db = Database::getInstance();
 

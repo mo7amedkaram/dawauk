@@ -1,7 +1,6 @@
 <?php
 /**
  * sitemap_generator.php - مولد خريطة الموقع
- * يقوم هذا الملف بإنشاء ملف sitemap.xml للموقع لتحسين فهرسة محركات البحث
  */
 
 require_once 'config/database.php';
@@ -14,10 +13,6 @@ class SitemapGenerator {
     
     /**
      * إنشاء كائن مولد خريطة الموقع
-     * 
-     * @param mixed $db كائن قاعدة البيانات
-     * @param string $baseUrl العنوان URL الأساسي للموقع
-     * @param string $sitemapPath مسار ملف خريطة الموقع
      */
     public function __construct($db, $baseUrl, $sitemapPath = 'sitemap.xml') {
         $this->db = $db;
@@ -30,9 +25,7 @@ class SitemapGenerator {
     }
     
     /**
-     * تنفيذ عملية توليد ملف خريطة الموقع
-     * 
-     * @return bool نجاح العملية
+     * تنفيذ عملية توليد خريطة الموقع
      */
     public function generate() {
         try {
@@ -59,11 +52,11 @@ class SitemapGenerator {
     }
     
     /**
-     * إضافة الصفحات الثابتة إلى خريطة الموقع
+     * إضافة الصفحات الثابتة
      */
     private function addStaticPages() {
         // الصفحة الرئيسية
-        $this->addUrl($this->baseUrl . '/index.php', '1.0', 'daily');
+        $this->addUrl($this->baseUrl . '/', '1.0', 'daily');
         
         // صفحة البحث
         $this->addUrl($this->baseUrl . '/search.php', '0.8', 'daily');
@@ -79,20 +72,18 @@ class SitemapGenerator {
         
         // صفحة التصنيفات
         $this->addUrl($this->baseUrl . '/categories.php', '0.8', 'weekly');
-        
-        // صفحة الإحصائيات
-        $this->addUrl($this->baseUrl . '/stats.php', '0.5', 'weekly');
     }
     
     /**
-     * إضافة صفحات الأدوية إلى خريطة الموقع
+     * إضافة صفحات الأدوية
      */
     private function addMedicationPages() {
         $sql = "SELECT id, trade_name, price_updated_date, visit_count FROM medications ORDER BY visit_count DESC";
         $medications = $this->db->fetchAll($sql);
         
         foreach ($medications as $medication) {
-            $url = $this->baseUrl . '/medication.php?id=' . $medication['id'];
+            // استخدام الصيغة الجديدة للروابط
+            $url = $this->baseUrl . '/medicine/' . urlencode($medication['trade_name']) . '/' . $medication['id'];
             
             // حساب الأولوية استنادًا إلى عدد الزيارات
             $priority = $this->calculatePriority($medication['visit_count']);
@@ -108,25 +99,20 @@ class SitemapGenerator {
     }
     
     /**
-     * إضافة صفحات التصنيفات إلى خريطة الموقع
+     * إضافة صفحات التصنيفات
      */
     private function addCategoryPages() {
         $sql = "SELECT id, name, arabic_name FROM categories ORDER BY name";
         $categories = $this->db->fetchAll($sql);
         
         foreach ($categories as $category) {
-            $url = $this->baseUrl . '/categories.php?id=' . $category['id'];
+            $url = $this->baseUrl . '/category/' . $category['id'];
             $this->addUrl($url, '0.7', 'weekly');
         }
     }
     
     /**
      * إضافة عنوان URL إلى خريطة الموقع
-     * 
-     * @param string $url عنوان URL
-     * @param string $priority الأولوية (0.0 إلى 1.0)
-     * @param string $changefreq تكرار التغيير (always, hourly, daily, weekly, monthly, yearly, never)
-     * @param string $lastmod تاريخ آخر تعديل (Y-m-d)
      */
     private function addUrl($url, $priority = '0.5', $changefreq = 'monthly', $lastmod = null) {
         $this->sitemapContent .= '  <url>' . PHP_EOL;
@@ -143,12 +129,8 @@ class SitemapGenerator {
     
     /**
      * حساب أولوية الصفحة استنادًا إلى عدد الزيارات
-     * 
-     * @param int $visitCount عدد الزيارات
-     * @return string الأولوية (0.0 إلى 1.0)
      */
     private function calculatePriority($visitCount) {
-        // زيادة الأولوية بناءً على عدد الزيارات
         if ($visitCount > 1000) {
             return '1.0';
         } elseif ($visitCount > 500) {
@@ -166,9 +148,6 @@ class SitemapGenerator {
     
     /**
      * حساب تكرار التغيير استنادًا إلى تاريخ التحديث
-     * 
-     * @param string $updateDate تاريخ التحديث
-     * @return string تكرار التغيير
      */
     private function calculateChangeFreq($updateDate) {
         if (empty($updateDate)) {
@@ -208,3 +187,4 @@ if (basename($_SERVER['SCRIPT_FILENAME']) == basename(__FILE__)) {
         echo "حدث خطأ أثناء إنشاء ملف خريطة الموقع.";
     }
 }
+?>

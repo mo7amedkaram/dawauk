@@ -1,7 +1,66 @@
 <?php
-// medication.php - صفحة تفاصيل الدواء مع تحسينات عرض البدائل والمثيل
+// medication.php - صفحة تفاصيل الدواء مع تحسينات SEO
 require_once 'config/database.php';
 require_once 'includes/stats_tracking.php';
+require_once __DIR__ . '/includes/seo.php';
+
+/**
+ * إنشاء slug من النص
+ *
+ * @param string $text النص المراد تحويله
+ * @return string النص بصيغة slug
+ */
+function createSlug($text) {
+    // إزالة الأحرف الخاصة والمسافات واستبدالها بشرطة
+    $text = preg_replace('~[^\p{L}\p{N}]+~u', '-', $text);
+    // تحويل إلى أحرف صغيرة
+    $text = mb_strtolower($text, 'UTF-8');
+    // إزالة الشرطات المتكررة
+    $text = preg_replace('~-+~', '-', $text);
+    // إزالة الشرطات من البداية والنهاية
+    $text = trim($text, '-');
+    
+    return $text;
+}
+
+/**
+ * الحصول على الرابط الأساسي للموقع
+ * 
+ * @return string الرابط الأساسي
+ */
+function getBaseUrl() {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'];
+    return $protocol . '://' . $host;
+}
+
+/**
+ * إنشاء رابط صفحة الدواء
+ * 
+ * @param int $medicationId معرف الدواء
+ * @param string $tradeName اسم الدواء التجاري
+ * @return string رابط صفحة الدواء
+ */
+function getMedicationUrl($medicationId, $tradeName = '') {
+    $baseUrl = getBaseUrl();
+    if (!empty($tradeName)) {
+        $slug = createSlug($tradeName);
+        return $baseUrl . '/medicine/' . $slug . '/' . $medicationId;
+    }
+    return $baseUrl . '/medicine/' . $medicationId;
+}
+
+/**
+ * إنشاء رابط صفحة التصنيف
+ * 
+ * @param string $category اسم التصنيف
+ * @return string رابط صفحة التصنيف
+ */
+function getCategoryUrl($category) {
+    $baseUrl = getBaseUrl();
+    $slug = createSlug($category);
+    return $baseUrl . '/category/' . $slug;
+}
 
 // التحقق من وجود معرف الدواء
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
@@ -16,8 +75,6 @@ $db = Database::getInstance();
 $statsTracker = new StatsTracker($db);
 
 $medication = $db->fetchOne("SELECT * FROM medications WHERE id = ?", [$medicationId]);
-
-// التحقق من وجود الدواء
 if (!$medication) {
     header('Location: index.php');
     exit;
@@ -65,9 +122,116 @@ $similarPopularMeds = $db->fetchAll(
     [$medication['scientific_name'], $medicationId]
 );
 
+// إنشاء وصف مناسب للصفحة
+$currentYear = date('Y');
+$description = "سعر دواء {$medication['trade_name']} في مصر اليوم {$medication['current_price']} جنيه";
+if (!empty($medication['scientific_name'])) {
+    $description .= " - المادة الفعالة: {$medication['scientific_name']}";
+}
+if (!empty($medication['company'])) {
+    $description .= " - منتج شركة {$medication['company']}";
+}
+if (!empty($medicationDetails) && !empty($medicationDetails['indications'])) {
+    // اقتصاص النص للوصف
+    $shortIndications = substr(strip_tags($medicationDetails['indications']), 0, 100);
+    $description .= " - {$shortIndications}...";
+}
+
+// إنشاء كلمات مفتاحية للصفحة
+$keywords = [
+    $medication['trade_name'],
+    'سعر ' . $medication['trade_name'],
+    'دواء ' . $medication['trade_name'],
+    'سعر ' . $medication['trade_name'] . ' ' . $currentYear,
+    'بديل ' . $medication['trade_name']
+];
+
+if (!empty($medication['scientific_name'])) {
+    $keywords[] = $medication['scientific_name'];
+    $keywords[] = 'أدوية تحتوي على ' . $medication['scientific_name'];
+}
+
+if (!empty($medication['company'])) {
+    $keywords[] = 'أدوية شركة ' . $medication['company'];
+}
+
+if (!empty($medication['category'])) {
+    $keywords[] = 'أدوية ' . $medication['category'];
+}
+
+// إعداد الأسئلة الشائعة
+$faqs = [
+    [
+        'question' => "ما هو دواء {$medication['trade_name']}؟",
+        'answer' => "دواء {$medication['trade_name']} يحتوي على المادة الفعالة {$medication['scientific_name']} وهو من إنتاج شركة {$medication['company']}." . 
+                    (!empty($medicationDetails['indications']) ? " يستخدم لـ" . $medicationDetails['indications'] : "")
+    ],
+    [
+        'question' => "ما هو سعر دواء {$medication['trade_name']} في مصر؟",
+        'answer' => "سعر دواء {$medication['trade_name']} في مصر هو {$medication['current_price']} جنيه مصري حسب آخر تحديث بتاريخ " . 
+                    (!empty($medication['price_updated_date']) ? date('d/m/Y', strtotime($medication['price_updated_date'])) : date('d/m/Y')) . "."
+    ],
+    [
+        'question' => "ما هي بدائل دواء {$medication['trade_name']}؟",
+        'answer' => !empty($alternatives) ? "من بدائل دواء {$medication['trade_name']} المتوفرة في مصر: " . 
+                    implode("، ", array_map(function($alt) { return $alt['trade_name'] . " (سعره " . $alt['current_price'] . " جنيه)"; }, 
+                    array_slice($alternatives, 0, 3))) : "يمكنك البحث عن بدائل تحتوي على نفس المادة الفعالة {$medication['scientific_name']}."
+    ],
+    [
+        'question' => "ما هي دواعي استعمال {$medication['trade_name']}؟",
+        'answer' => !empty($medicationDetails['indications']) ? $medicationDetails['indications'] : 
+                    "يرجى استشارة الطبيب أو الصيدلي لمعرفة دواعي استعمال دواء {$medication['trade_name']} بالتفصيل."
+    ],
+    [
+        'question' => "ما هي الآثار الجانبية لدواء {$medication['trade_name']}؟",
+        'answer' => !empty($medicationDetails['side_effects']) ? $medicationDetails['side_effects'] : 
+                    "يرجى قراءة النشرة الداخلية لدواء {$medication['trade_name']} أو استشارة الطبيب أو الصيدلي لمعرفة الآثار الجانبية المحتملة."
+    ]
+];
+
 // إعداد معلومات الصفحة
-$pageTitle = $medication['trade_name'];
+$scientificName = $medication['scientific_name'] ?? '';
+$pageTitle = "سعر {$medication['trade_name']} {$currentYear} - {$scientificName}";
 $currentPage = '';
+
+// التحقق من وجود تكوين الذكاء الاصطناعي - المتغيرات المطلوبة في header.php
+$siteName = 'دواؤك - دليلك الشامل للأدوية';
+$headerUseAiSearch = false;
+
+// رابط الصفحة الحالي المحسن للSEO
+$canonicalUrl = getMedicationUrl($medicationId, $medication['trade_name']);
+
+// إنشاء كائن SEO وتكوينه
+$seo = new SEO($db);
+$seo->setTitle($pageTitle)
+    ->setDescription($description)
+    ->setKeywords($keywords)
+    ->setCanonicalUrl($canonicalUrl)
+    ->setOgType('product');
+
+// إذا كانت هناك صورة للدواء
+if (!empty($medication['image_url'])) {
+    $seo->setOgImage($medication['image_url']);
+}
+
+// إضافة مخطط بيانات Product
+$seo->addMedicationSchema($medication);
+
+// إضافة مخطط Drug
+$seo->addMedicalSchema($medication);
+
+// إضافة مخطط FAQ
+$seo->addFAQSchema($faqs);
+
+// إضافة مخطط Breadcrumb
+$breadcrumbs = [
+    'الرئيسية' => getBaseUrl(),
+];
+if (!empty($medication['category'])) {
+    $breadcrumbs[$medication['category']] = getCategoryUrl($medication['category']);
+}
+$breadcrumbs[$medication['trade_name']] = $canonicalUrl;
+$seo->addBreadcrumbSchema($breadcrumbs);
 
 // تضمين ملف الهيدر
 include 'includes/header.php';
@@ -77,10 +241,10 @@ include 'includes/header.php';
     <!-- شريط التنقل -->
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="index.php">الرئيسية</a></li>
+            <li class="breadcrumb-item"><a href="<?php echo getBaseUrl(); ?>">الرئيسية</a></li>
             <?php if (!empty($medication['category'])): ?>
                 <li class="breadcrumb-item">
-                    <a href="search.php?category=<?php echo urlencode($medication['category']); ?>">
+                    <a href="<?php echo getCategoryUrl($medication['category']); ?>">
                         <?php echo $medication['category']; ?>
                     </a>
                 </li>
@@ -96,7 +260,7 @@ include 'includes/header.php';
                 <?php if (!empty($medication['image_url'])): ?>
                     <img src="<?php echo $medication['image_url']; ?>" class="med-detail-img img-fluid mb-3" alt="<?php echo $medication['trade_name']; ?>">
                 <?php else: ?>
-                    <div class="med-detail-img d-flex align-items-center justify-content-center">
+                    <div class="med-detail-img d-flex align-items-center justify-content-center bg-light">
                         <i class="fas fa-prescription-bottle-alt fa-5x text-secondary"></i>
                         <?php if (isset($_SESSION['is_admin']) && $_SESSION['is_admin']): ?>
                             <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="fetchImageFromGoogle(<?php echo $medicationId; ?>)">
@@ -142,7 +306,7 @@ include 'includes/header.php';
                                 <span class="label">التصنيف:</span>
                                 <span>
                                     <?php echo $medication['category']; ?>
-                                    <a href="search.php?category=<?php echo urlencode($medication['category']); ?>" class="badge bg-primary ms-2" title="بحث في نفس التصنيف">
+                                    <a href="<?php echo getCategoryUrl($medication['category']); ?>" class="badge bg-primary ms-2" title="بحث في نفس التصنيف">
                                         <i class="fas fa-search"></i>
                                     </a>
                                 </span>
@@ -363,7 +527,7 @@ include 'includes/header.php';
                                 <?php foreach ($similarPopularMeds as $med): ?>
                                     <tr>
                                         <td>
-                                            <a href="medication.php?id=<?php echo $med['id']; ?>" class="text-decoration-none">
+                                            <a href="<?php echo getMedicationUrl($med['id'], $med['trade_name']); ?>" class="text-decoration-none">
                                                 <strong><?php echo $med['trade_name']; ?></strong>
                                             </a>
                                         </td>
@@ -373,7 +537,7 @@ include 'includes/header.php';
                                             <span class="badge bg-secondary"><?php echo number_format($med['visit_count']); ?></span>
                                         </td>
                                         <td>
-                                            <a href="medication.php?id=<?php echo $med['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                            <a href="<?php echo getMedicationUrl($med['id'], $med['trade_name']); ?>" class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye"></i>
                                             </a>
                                         </td>
@@ -385,6 +549,8 @@ include 'includes/header.php';
                 </div>
             </div>
             <?php endif; ?>
+            
+            <!-- Resto del código... -->
             
             <!-- الأدوية المثيلة (نفس المادة الفعالة ونفس الشركة) -->
             <?php if (!empty($equivalentMeds)): ?>
@@ -415,7 +581,7 @@ include 'includes/header.php';
                                 <?php foreach ($equivalentMeds as $eq): ?>
                                     <tr>
                                         <td>
-                                            <a href="medication.php?id=<?php echo $eq['id']; ?>" class="text-decoration-none fw-bold">
+                                            <a href="<?php echo getMedicationUrl($eq['id'], $eq['trade_name']); ?>" class="text-decoration-none fw-bold">
                                                 <?php echo $eq['trade_name']; ?>
                                             </a>
                                         </td>
@@ -492,12 +658,12 @@ include 'includes/header.php';
                                 <tbody>
                                     <?php foreach ($alternatives as $alt): 
                                         $priceDiff = $medication['current_price'] - $alt['current_price'];
-                                        $percentageDiff = ($priceDiff / $medication['current_price']) * 100;
+                                        $percentageDiff = ($medication['current_price'] > 0) ? ($priceDiff / $medication['current_price']) * 100 : 0;
                                         $priceCategory = $priceDiff > 5 ? 'cheaper' : ($priceDiff < -5 ? 'expensive' : 'similar');
                                     ?>
                                         <tr data-category="<?php echo $priceCategory; ?>">
                                             <td>
-                                                <a href="medication.php?id=<?php echo $alt['id']; ?>" class="text-decoration-none">
+                                                <a href="<?php echo getMedicationUrl($alt['id'], $alt['trade_name']); ?>" class="text-decoration-none">
                                                     <strong><?php echo $alt['trade_name']; ?></strong>
                                                 </a>
                                                 <?php if ($alt === reset($alternatives) && $priceCategory === 'cheaper'): ?>
@@ -532,6 +698,7 @@ include 'includes/header.php';
                                                         <span class="percentage"><?php echo round($percentageDiff); ?>%</span>
                                                         <div class="progress" style="height: 5px;">
                                                             <div class="progress-bar bg-success" style="width: <?php echo min(round($percentageDiff), 100); ?>%;"></div>
+                                                        </div>
                                                     </div>
                                                 <?php elseif ($priceDiff < 0): ?>
                                                     <span class="badge bg-danger">أغلى</span>
@@ -541,7 +708,7 @@ include 'includes/header.php';
                                             </td>
                                             <td>
                                                 <div class="d-flex gap-1">
-                                                    <a href="medication.php?id=<?php echo $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                                    <a href="<?php echo getMedicationUrl($alt['id'], $alt['trade_name']); ?>" class="btn btn-sm btn-outline-primary">
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <a href="compare.php?ids=<?php echo $medicationId . ',' . $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
@@ -598,7 +765,7 @@ include 'includes/header.php';
                                 <?php foreach ($therapeuticAlternatives as $alt): ?>
                                     <tr>
                                         <td>
-                                            <a href="medication.php?id=<?php echo $alt['id']; ?>" class="text-decoration-none fw-bold">
+                                            <a href="<?php echo getMedicationUrl($alt['id'], $alt['trade_name']); ?>" class="text-decoration-none fw-bold">
                                                 <?php echo $alt['trade_name']; ?>
                                             </a>
                                         </td>
@@ -639,7 +806,7 @@ include 'includes/header.php';
                                         </td>
                                         <td>
                                             <div class="d-flex gap-1">
-                                                <a href="medication.php?id=<?php echo $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                                <a href="<?php echo getMedicationUrl($alt['id'], $alt['trade_name']); ?>" class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
                                                 <a href="compare.php?ids=<?php echo $medicationId . ',' . $alt['id']; ?>" class="btn btn-sm btn-outline-primary">
@@ -660,6 +827,34 @@ include 'includes/header.php';
                 </div>
             </div>
             <?php endif; ?>
+            
+            <!-- إضافة قسم الأسئلة الشائعة -->
+            <div class="card mb-4" id="faq">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i> الأسئلة الشائعة حول <?php echo $medication['trade_name']; ?></h5>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="faqAccordion">
+                        <?php foreach ($faqs as $index => $faq): ?>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="faqHeading<?php echo $index; ?>">
+                                    <button class="accordion-button <?php echo $index > 0 ? 'collapsed' : ''; ?>" type="button" data-bs-toggle="collapse" 
+                                            data-bs-target="#faqCollapse<?php echo $index; ?>" aria-expanded="<?php echo $index === 0 ? 'true' : 'false'; ?>" 
+                                            aria-controls="faqCollapse<?php echo $index; ?>">
+                                        <?php echo $faq['question']; ?>
+                                    </button>
+                                </h2>
+                                <div id="faqCollapse<?php echo $index; ?>" class="accordion-collapse collapse <?php echo $index === 0 ? 'show' : ''; ?>" 
+                                     aria-labelledby="faqHeading<?php echo $index; ?>" data-bs-parent="#faqAccordion">
+                                    <div class="accordion-body">
+                                        <?php echo nl2br($faq['answer']); ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -734,6 +929,102 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 });
 </script>
+
+<style>
+/* تنسيقات خاصة بصفحة تفاصيل الدواء */
+.med-detail-img {
+    max-height: 300px;
+    width: auto;
+    margin: 0 auto;
+    object-fit: contain;
+}
+
+.med-info-list {
+    list-style: none;
+    padding: 0;
+}
+
+.med-info-list li {
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.med-info-list .label {
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #666;
+}
+
+.price-tag {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #0d6efd;
+}
+
+.old-price {
+    text-decoration: line-through;
+    color: #6c757d;
+    font-size: 1.2rem;
+}
+
+.cheaper-alternative-badge {
+    background-color: #198754;
+    color: white;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.detail-tabs .nav-link {
+    padding: 10px 15px;
+    border-radius: 0;
+    font-weight: 500;
+}
+
+.saving-percentage {
+    width: 100%;
+}
+
+.percentage {
+    font-weight: 600;
+    color: #198754;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.alternatives-filters {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.filter-buttons .btn {
+    margin-right: 5px;
+}
+
+.search-highlight {
+    background-color: rgba(255, 193, 7, 0.3);
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* تنسيقات قسم الأسئلة الشائعة */
+.accordion-button:not(.collapsed) {
+    background-color: rgba(13, 110, 253, 0.1);
+    color: #0d6efd;
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.accordion-body {
+    padding: 1rem 1.25rem;
+    background-color: #f8f9fa;
+}
+</style>
 
 <?php
 // تضمين ملف الفوتر

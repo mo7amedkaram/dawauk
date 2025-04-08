@@ -2,8 +2,23 @@
 // index.php - تحديث الصفحة الرئيسية لدعم طرق البحث المتعددة
 require_once 'config/database.php';
 
+require_once 'seo.php';
+
+$db = Database::getInstance();
+$seo = new SEO($db);
+
+// إعداد SEO حسب نوع الصفحة
+if ($page_type == 'home') {
+    $seo->setupHomePage();
+} elseif ($page_type == 'medication') {
+    $seo->setupMedicationPage($medication);
+}
+
+// طباعة وسوم SEO في رأس الصفحة
+echo $seo->generate();
+
 // إعداد معلومات الصفحة
-$pageTitle = 'الرئيسية';
+$pageTitle = 'الرئيسية | دواؤك';
 $currentPage = 'home';
 
 // الحصول على الأدوية الشائعة
@@ -78,41 +93,22 @@ include 'includes/header.php';
 <section class="container mb-5">
     <div class="row">
         <!-- تحميل التطبيق -->
-        <div class="col-md-6 mb-4">
-            <div class="card app-download-card shadow">
-                <div class="card-body text-center py-4">
-                    <div class="app-icon mb-3">
-                        <i class="fab fa-android fa-4x text-success"></i>
-                    </div>
-                    <h3 class="card-title mb-3">حمّل تطبيق دواؤك الآن</h3>
-                    <p class="card-text mb-4">احصل على تجربة أفضل مع تطبيق دواؤك للهواتف الذكية. تصفح الأدوية، حفظ المفضلة، والبحث بسرعة حتى بدون إنترنت.</p>
-                    <a href="https://play.google.com/store/apps/YOUR_APP_LINK" class="btn btn-lg btn-success download-btn" target="_blank">
-                        <i class="fab fa-google-play me-2"></i> تحميل من جوجل بلاي
-                    </a>
-                    <div class="mt-3">
-                        <span class="badge bg-light text-dark">
-                            <i class="fas fa-star text-warning"></i> 4.8 | +10,000 تحميل
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
+        
         
         <!-- الانضمام لمجموعة الفيسبوك -->
-        <div class="col-md-6 mb-4">
+        <div class="col-md-6-center mb-4">
             <div class="card facebook-card shadow">
                 <div class="card-body text-center py-4">
                     <div class="facebook-icon mb-3">
                         <i class="fab fa-facebook fa-4x text-primary"></i>
                     </div>
                     <h3 class="card-title mb-3">انضم لمجموعتنا على فيسبوك</h3>
-                    <p class="card-text mb-4">كن جزءًا من مجتمع دواؤك النشط. شارك تجاربك، اطرح أسئلتك، واستفد من خبرات أكثر من 50,000 عضو.</p>
-                    <a href="https://www.facebook.com/groups/YOUR_GROUP_LINK" class="btn btn-lg btn-primary facebook-btn" target="_blank">
+                    <p class="card-text mb-4">كن جزءًا من مجتمع دواؤك النشط. اطرح أسئلتك، واستفد من خبرات عدد كبير من الصيادلة.</p>
+                    <a href="https://www.facebook.com/share/g/1HL2Vt5VSk/" class="btn btn-lg btn-primary facebook-btn" target="_blank">
                         <i class="fab fa-facebook-f me-2"></i> الانضمام للمجموعة
                     </a>
                     <div class="mt-3">
-                        <span class="badge bg-light text-dark">
-                            <i class="fas fa-users text-primary"></i> +50,000 عضو نشط
+                        
                         </span>
                     </div>
                 </div>

@@ -1,0 +1,30 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /config/
+Disallow: /includes/
+Disallow: /assets/js/
+Disallow: /assets/css/
+Disallow: /*.php$
+Allow: /index.php
+Allow: /search.php
+Allow: /medication.php
+Allow: /compare.php
+Allow: /categories.php
+Allow: /guide.php
+Allow: /search_ui.php
+
+# Allow Google Image bot to index images
+User-agent: Googlebot-Image
+Allow: /assets/images/
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.png$
+Allow: /*.gif$
+
+# Allow GPT bot (for ChatGPT plugins)
+User-agent: GPTBot
+Allow: /
+
+# Sitemap location
+Sitemap: https://dawauk.com/sitemap.xml

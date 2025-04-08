@@ -1,5 +1,5 @@
 <?php
-// includes/footer.php
+// includes/footer.php - النسخة المعدلة
 ?>
     </main>
 
@@ -8,8 +8,8 @@
         <div class="container">
             <div class="row">
                 <div class="col-md-4 mb-4 mb-md-0">
-                    <h5 class="mb-3 border-bottom pb-2">عن منصة دواؤك</h5>
-                    <p>منصة متكاملة تساعد الصيادلة والمستخدمين في البحث عن الأدوية ومعرفة أسعارها والتفاصيل المتعلقة بها. تهدف المنصة لتسهيل الوصول للمعلومات الدوائية بشكل سريع ودقيق.</p>
+                    <h5 class="mb-3 border-bottom pb-2">عن <?php echo $siteSettings['site_title'] ?? 'دواؤك'; ?></h5>
+                    <p><?php echo $siteSettings['site_description'] ?? 'منصة متكاملة تساعد الصيادلة والمستخدمين في البحث عن الأدوية ومعرفة أسعارها والتفاصيل المتعلقة بها. تهدف المنصة لتسهيل الوصول للمعلومات الدوائية بشكل سريع ودقيق.'; ?></p>
                 </div>
                 <div class="col-md-4 mb-4 mb-md-0">
                     <h5 class="mb-3 border-bottom pb-2">روابط سريعة</h5>
@@ -24,9 +24,11 @@
                 <div class="col-md-4">
                     <h5 class="mb-3 border-bottom pb-2">تواصل معنا</h5>
                     <ul class="list-unstyled">
-                        <li class="mb-2"><i class="fas fa-envelope me-2"></i> info@dawaauk.com</li>
-                        <li class="mb-2"><i class="fas fa-phone-alt me-2"></i> +2 012 3456 7890</li>
+                        <li class="mb-2"><i class="fas fa-envelope me-2"></i> <?php echo $siteSettings['contact_email'] ?? 'info@dawaauk.com'; ?></li>
+                        <li class="mb-2"><i class="fas fa-phone-alt me-2"></i> <?php echo $siteSettings['contact_phone'] ?? '+2 012 3456 7890'; ?></li>
                         <li class="mb-2"><i class="fas fa-map-marker-alt me-2"></i> القاهرة، مصر</li>
+                        <li class="mb-2"><a href="contact.php" class="text-white text-decoration-none"><i class="fas fa-paper-plane me-2"></i>اتصل بنا</a></li>
+                        <li class="mb-2"><a href="privacy.php" class="text-white text-decoration-none"><i class="fas fa-shield-alt me-2"></i>سياسة الخصوصية</a></li>
                     </ul>
                     <div class="mt-3">
                         <a href="#" class="text-white me-3 fs-5"><i class="fab fa-facebook"></i></a>
@@ -38,7 +40,7 @@
             </div>
             <hr class="my-4">
             <div class="text-center">
-                <p class="mb-0">&copy; <?php echo date('Y'); ?> دواؤك. جميع الحقوق محفوظة.</p>
+                <p class="mb-0">&copy; <?php echo date('Y'); ?> <?php echo $siteSettings['site_title'] ?? 'دواؤك'; ?>. جميع الحقوق محفوظة.</p>
             </div>
         </div>
     </footer>
